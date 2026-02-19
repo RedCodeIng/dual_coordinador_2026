@@ -69,11 +69,15 @@ def get_login_css():
 
 def get_login_header():
     # Paths
-    base_path = "src/assets/images/logos"
+    # Paths - Robust fix using __file__
+    # Current file is in src/components, logos are in src/assets/images/logos
+    # We go up one level (to src) then into assets/images/logos
+    base_path = os.path.join(os.path.dirname(__file__), "../assets/images/logos")
+
+    if not os.path.exists(base_path):
+        # Fallback to CWD relative if seemingly not found (though abspath is best)
+        base_path = "src/assets/images/logos"
     
-    # Load Real Images
-    # We need to construct absolute path or relative from cwd
-    # Assuming CWD is project root
     logo_tese = load_image_as_base64(os.path.join(base_path, "logo_institucional_tese.png"))
     logo_edomex = load_image_as_base64(os.path.join(base_path, "logo_estado_mexico.png"))
     logo_dual = load_image_as_base64(os.path.join(base_path, "logo_dual_sistema.png"))
