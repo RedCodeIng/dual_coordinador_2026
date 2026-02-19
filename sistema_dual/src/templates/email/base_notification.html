@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+
+        .content {
+            padding: 20px;
+            background-color: white;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #777;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Sistema de Gestión Dual</h2>
+        </div>
+        <div class="content">
+            <p>Hola {{ nombre }},</p>
+
+            <p>{{ mensaje }}</p>
+
+            {% if accion_url %}
+            <p style="text-align: center;">
+                <a href="{{ accion_url }}" class="button">{{ accion_texto }}</a>
+            </p>
+            {% endif %}
+
+            <p>Atentamente,<br>El equipo del Sistema Dual</p>
+        </div>
+        <div class="footer">
+            <p>Este es un mensaje automático, por favor no respondas a este correo.</p>
+        </div>
+    </div>
+</body>
+
+</html>
