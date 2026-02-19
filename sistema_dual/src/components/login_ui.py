@@ -87,13 +87,13 @@ def get_login_header():
     img_dual = f'<img src="{logo_dual}" class="logo-img-dual">' if logo_dual else ''
 
     return f"""
-    <div class="login-card">
-        <div class="logo-row">
-            {img_tese}
-            {img_dual}
-            {img_edomex}
-        </div>
-        <div class="login-header">Sistema de Gestión DUAL</div>
-        <div class="login-subtext">Gobierno del Estado de México</div>
+<div class="login-card">
+    <div class="logo-row">
+        {img_tese}
+        {img_dual}
+        {img_edomex}
     </div>
-    """
+    <div class="login-header">Sistema de Gestión DUAL</div>
+    <div class="login-subtext">Gobierno del Estado de México</div>
+</div>
+"""
