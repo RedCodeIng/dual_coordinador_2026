@@ -1,5 +1,0 @@
-streamlit
-supabase
-pandas
-python-dotenv
-xhtml2pdf
