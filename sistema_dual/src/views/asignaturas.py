@@ -22,40 +22,112 @@ def render_asignaturas():
         tab_list, tab_create = st.tabs(["Listado de Asignaturas", "Registrar Nueva Asignatura"])
         
         with tab_list:
-            # Filter by Career ID
+            # Semester Filter
+            col_filt_1, col_filt_2 = st.columns([1, 4])
+            with col_filt_1:
+                 # Fetch distinct semesters to populate filter
+                 res_sems = supabase.table("asignaturas").select("semestre").execute()
+                 available_sems = sorted(list(set([s['semestre'] for s in res_sems.data if s['semestre']])))
+                 sel_sem = st.selectbox("Filtrar por Semestre", ["Todos"] + available_sems)
+                 
+            st.divider()
+            
+            # Filter Query
             query = supabase.table("asignaturas").select("*")
             if selected_career_id:
                 query = query.eq("carrera_id", selected_career_id)
+            if sel_sem != "Todos":
+                query = query.eq("semestre", sel_sem)
+                
             res = query.execute()
             
             if res.data:
-                df = pd.DataFrame(res.data)
+                # Add Select All functionality
+                col_sa1, col_sa2 = st.columns([1, 4])
+                with col_sa1:
+                    select_all = st.checkbox("☑️ Seleccionar Todos", key="sel_all_asignaturas")
+
+                if st.session_state.get("prev_sel_all_asignaturas") != select_all:
+                    st.session_state["prev_sel_all_asignaturas"] = select_all
+                    for s in res.data:
+                        st.session_state[f"sel_s_{s['id']}"] = select_all
+
+                # Header row
+                hc0, hc1, hc2, hc3, hc4 = st.columns([0.5, 1.5, 4, 1, 2])
+                hc0.write("**Sel.**")
+                hc1.caption("CLAVE")
+                hc2.caption("NOMBRE DE ASIGNATURA")
+                hc3.caption("SEMESTRE")
+                hc4.caption("ACCIONES")
+                st.markdown("---")
                 
-                col_cfg = {
-                    "clave_asignatura": "Clave",
-                    "nombre": "Asignatura",
-                    "semestre": "Semestre"
-                }
+                selected_subjects = []
                 
-                st.dataframe(
-                    df,
-                    column_config=col_cfg,
-                    hide_index=True,
-                    use_container_width=True
-                )
-                
-                # Selector for Detail View
-                subject_options = {f"{s['clave_asignatura']} - {s['nombre']}": s["id"] for s in res.data}
-                selected_subject = st.selectbox("Ver Detalles / Competencias de:", list(subject_options.keys()), index=None, placeholder="Seleccione una asignatura...")
-                
-                if selected_subject:
-                    if st.button("Ver Detalles"):
-                        st.session_state["selected_subject_id"] = subject_options[selected_subject]
-                        st.session_state["selected_subject_name"] = selected_subject
-                        st.session_state["view_subject_mode"] = "detail"
-                        st.rerun()
+                for s in sorted(res.data, key=lambda x: (x.get('semestre', 0), x['nombre'])):
+                    cont = st.container()
+                    c0, c1, c2, c3, c4 = cont.columns([0.5, 1.5, 4, 1, 2])
+                    
+                    with c0:
+                        is_checked = st.checkbox(" ", key=f"sel_s_{s['id']}")
+                        if is_checked:
+                            selected_subjects.append(s['id'])
+                            
+                    c1.write(f"**{s['clave_asignatura']}**")
+                    c2.write(f"{s['nombre']}")
+                    c3.write(f"Semestre {s.get('semestre', '-')}")
+                    
+                    with c4.popover("Acciones"):
+                        # Short edit
+                        st.markdown("##### Editar Básicos")
+                        with st.form(f"edit_subj_{s['id']}"):
+                            e_clave = st.text_input("Clave", value=s['clave_asignatura'])
+                            e_nombre = st.text_input("Nombre", value=s['nombre'])
+                            e_semestre = st.number_input("Semestre", min_value=1, max_value=12, value=s.get('semestre') or 1)
+                            
+                            if st.form_submit_button("Guardar"):
+                                supabase.table("asignaturas").update({
+                                    "clave_asignatura": e_clave,
+                                    "nombre": e_nombre,
+                                    "semestre": e_semestre
+                                }).eq("id", s['id']).execute()
+                                st.success("Asignatura actualizada.")
+                                st.rerun()
+                                
+                        st.divider()
+                        
+                        if st.button("Ver Detalles / Competencias", key=f"btn_view_{s['id']}"):
+                            st.session_state["selected_subject_id"] = s['id']
+                            st.session_state["selected_subject_name"] = f"{s['clave_asignatura']} - {s['nombre']}"
+                            st.session_state["view_subject_mode"] = "detail"
+                            st.rerun()
+
+                        st.divider()
+
+                        st.error("Zona de Peligro")
+                        if st.button("Eliminar Asignatura", key=f"del_s_{s['id']}"):
+                            supabase.table("asignaturas").delete().eq("id", s['id']).execute()
+                            st.success("Asignatura eliminada.")
+                            st.rerun()
+                    
+                    st.divider()
+
+                # Batch Action Area
+                if selected_subjects:
+                    st.warning(f"⚠️ {len(selected_subjects)} asignatura(s) seleccionada(s) para eliminar.")
+                    with st.form("batch_delete_asignaturas_form"):
+                        confirm_batch = st.checkbox("Confirmar eliminación definitiva de las asignaturas seleccionadas.")
+                        if st.form_submit_button("Eliminar Seleccionados"):
+                            if confirm_batch:
+                                try:
+                                    supabase.table("asignaturas").delete().in_("id", selected_subjects).execute()
+                                    st.success(f"{len(selected_subjects)} asignatura(s) eliminadas correctamente.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error en baja masiva: {e}")
+                            else:
+                                st.error("Por favor, marque la casilla de confirmación para proceder.")
             else:
-                st.info(f"No hay asignaturas registradas para {selected_career_name}.")
+                st.info(f"No hay asignaturas registradas que coincidan con los filtros.")
 
         with tab_create:
             st.subheader("Alta de Asignatura")

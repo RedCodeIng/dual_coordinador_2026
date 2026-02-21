@@ -1,6 +1,8 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from jinja2 import Environment, FileSystemLoader
 import os
 from dotenv import load_dotenv
@@ -22,9 +24,10 @@ def load_template(template_name, context):
     template = env.get_template(template_name)
     return template.render(context)
 
-def send_email(to_email, subject, template_name, context):
+def send_email(to_email, subject, template_name, context, attachments=None):
     """
     Envía un correo electrónico HTML usando una plantilla.
+    attachments: lista de rutas absolutas a archivos para adjuntar.
     """
     try:
         html_content = load_template(template_name, context)
@@ -35,6 +38,19 @@ def send_email(to_email, subject, template_name, context):
         msg['Subject'] = subject
 
         msg.attach(MIMEText(html_content, 'html'))
+        
+        if attachments:
+            for filepath in attachments:
+                if os.path.exists(filepath):
+                    with open(filepath, "rb") as attachment:
+                        part = MIMEBase("application", "octet-stream")
+                        part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header(
+                        "Content-Disposition",
+                        f'attachment; filename="{os.path.basename(filepath)}"'
+                    )
+                    msg.attach(part)
 
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()

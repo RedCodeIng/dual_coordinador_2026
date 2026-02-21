@@ -17,7 +17,7 @@ def send_confirmation_email(to_email, student_name):
     """
     smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(os.environ.get("SMTP_PORT", 587))
-    sender_email = os.environ.get("SMTP_EMAIL", "test@example.com")
+    sender_email = os.environ.get("SMTP_USER", "test@example.com")
     sender_password = os.environ.get("SMTP_PASSWORD", "password")
 
     subject = "Confirmación de Registro DUAL (Por Coordinación)"
@@ -36,9 +36,8 @@ def send_confirmation_email(to_email, student_name):
     # If no real credentials, just log it (Mock mode)
     if sender_email == "test@example.com" or not sender_password:
         print(f"--- MOCK EMAIL TO {to_email} ---")
-        print(f"Subject: {subject}")
-        print(body)
-        print("-------------------------------")
+        try: st.toast(f"Modo Prueba Activo: No se enviará el correo a {to_email}. Configura SMTP.", icon="ℹ️")
+        except: pass
         return True
 
     try:
@@ -58,7 +57,9 @@ def send_confirmation_email(to_email, student_name):
         return True
     except Exception as e:
         print(f"Failed to send email: {e}")
-        raise e
+        try: st.error(f"Falla crítica SMTP al enviar a {to_email}: {e}")
+        except: pass
+        return False
 
 def generate_ics_content(title, start_date, end_date):
     """Generates the raw string content for an .ics calendar file."""
@@ -99,6 +100,8 @@ def send_period_invites(to_email, period_name, dates_dict):
     
     if sender_email == "test@example.com" or not sender_password:
         print(f"--- MOCK CALENDAR EMAIL TO {to_email} ---")
+        try: st.toast("Modo Prueba Activo: No se enviará calendario. Configura credenciales SMTP.", icon="ℹ️")
+        except: pass
         return True
 
     try:
@@ -126,6 +129,8 @@ def send_period_invites(to_email, period_name, dates_dict):
         return True
     except Exception as e:
         print(f"Failed to send calendar invites: {e}")
+        try: st.error(f"Falla crítica SMTP al enviar a {to_email}: {e}")
+        except: pass
         return False
 
 def send_document_email(to_email, student_name, document_name, file_path):
@@ -145,6 +150,8 @@ def send_document_email(to_email, student_name, document_name, file_path):
     
     if sender_email == "test@example.com" or not sender_password:
         print(f"--- MOCK DOCUMENT EMAIL TO {to_email} ---")
+        try: st.toast("Modo Prueba Activo: No se enviará documento. Configura credenciales SMTP.", icon="ℹ️")
+        except: pass
         return True
 
     try:
@@ -173,4 +180,6 @@ def send_document_email(to_email, student_name, document_name, file_path):
         return True
     except Exception as e:
         print(f"Failed to send document email: {e}")
+        try: st.error(f"Falla crítica SMTP al enviar a {to_email}: {e}")
+        except: pass
         return False

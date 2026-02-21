@@ -1,7 +1,10 @@
-
 import streamlit as st
 import pandas as pd
+import random
+import string
+import hashlib
 from src.db_connection import get_supabase_client
+from src.utils.notifications import send_email
 
 def render_empresas():
     st.header("Gestión de Unidades Económicas (UE) y Mentores")
@@ -16,8 +19,33 @@ def render_empresas():
         with tab_list:
             res = supabase.table("unidades_economicas").select("*").execute()
             if res.data:
+                # Add Select All functionality
+                col_sa1, col_sa2 = st.columns([1, 4])
+                with col_sa1:
+                    select_all = st.checkbox("☑️ Seleccionar Todos", key="sel_all_empresas")
+                    
+                if st.session_state.get("prev_sel_all_empresas") != select_all:
+                    st.session_state["prev_sel_all_empresas"] = select_all
+                    for ue in res.data:
+                        st.session_state[f"sel_ue_{ue['id']}"] = select_all
+                        
+                hc0, hc1, hc2, hc3 = st.columns([0.5, 3, 2, 2])
+                hc0.write("**Sel.**")
+                hc1.write("**Nombre Comercial**")
+                hc2.write("**Razón Social**")
+                hc3.write("**Acciones**")
+                st.divider()
+
+                selected_companies = []
+                
                 for ue in res.data:
-                    c1, c2, c3 = st.columns([3, 2, 2])
+                    c0, c1, c2, c3 = st.columns([0.5, 3, 2, 2])
+                    
+                    with c0:
+                        is_checked = st.checkbox(" ", key=f"sel_ue_{ue['id']}")
+                        if is_checked:
+                            selected_companies.append(ue['id'])
+                            
                     c1.write(f"**{ue['nombre_comercial']}**")
                     c2.write(f"{ue['razon_social']}")
                     
@@ -62,6 +90,52 @@ def render_empresas():
                                 st.error(f"Error al eliminar: {e}")
                     
                     st.divider()
+                    
+                # Batch Action Area
+                if selected_companies:
+                    st.warning(f"⚠️ {len(selected_companies)} empresa(s) seleccionada(s) para eliminar.")
+                    with st.form("batch_delete_empresas_form"):
+                        confirm_batch = st.checkbox("Confirmar eliminación definitiva de las empresas seleccionadas.")
+                        if st.form_submit_button("Eliminar Seleccionados"):
+                            if confirm_batch:
+                                try:
+                                    supabase.table("unidades_economicas").delete().in_("id", selected_companies).execute()
+                                    st.success(f"{len(selected_companies)} empresa(s) eliminada(s) correctamente.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error en baja masiva: {e}")
+                            else:
+                                st.error("Por favor, marque la casilla de confirmación para proceder.")
+                                
+                    st.info(f"ℹ️ {len(selected_companies)} empresa(s) seleccionada(s) para enviar credenciales a sus Mentores.")
+                    with st.form("batch_send_credentials_ue_form"):
+                        if st.form_submit_button("📧 Enviar Credenciales a Mentores UE Seleccionados"):
+                            import random, string, hashlib
+                            from src.utils.notifications import send_email
+                            
+                            try:
+                                # Get Mentores UE for the selected companies
+                                res_mentors = supabase.table("mentores_ue").select("*").in_("ue_id", selected_companies).execute()
+                                mentors = res_mentors.data if res_mentors.data else []
+                                
+                                sent_count = 0
+                                for m in mentors:
+                                    if m.get('email'):
+                                        raw_pw = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+                                        hash_pw = hashlib.sha256(raw_pw.encode('utf-8')).hexdigest()
+                                        supabase.table("mentores_ue").update({"password_hash": hash_pw}).eq("id", m['id']).execute()
+                                        
+                                        ctx = {
+                                            "mentor_nombre": m['nombre_completo'],
+                                            "mentor_email": m['email'],
+                                            "mentor_password": raw_pw
+                                        }
+                                        send_email(m['email'], "Credenciales de Acceso Mentor UE - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                                        sent_count += 1
+                                        
+                                st.success(f"Se generaron y enviaron credenciales a {sent_count} Mentores UE.")
+                            except Exception as e:
+                                st.error(f"Error al enviar credenciales masivas: {e}")
             else:
                 st.info("No hay unidades económicas registradas.")
 
@@ -123,16 +197,38 @@ def render_empresas():
                             if res_ue.data:
                                 new_ue_id = res_ue.data[0]['id']
                                 
+                                # Generate a random 8-char alphanumeric password
+                                raw_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+                                hashed_pwd = hashlib.sha256(raw_password.encode('utf-8')).hexdigest()
+                                
                                 # 2. Insert Mentor (Mandatory)
                                 new_mentor = {
                                     "ue_id": new_ue_id,
                                     "nombre_completo": m_nombre,
                                     "cargo": m_cargo,
                                     "email": m_email,
-                                    "telefono": m_tel
+                                    "telefono": m_tel,
+                                    "password_hash": hashed_pwd
                                 }
                                 supabase.table("mentores_ue").insert(new_mentor).execute()
-                                st.success(f"Empresa '{nombre}' y Mentor '{m_nombre}' registrados exitosamente.")
+                                
+                                # 3. Send Email with Credentials
+                                context_email = {
+                                    "mentor_nombre": m_nombre,
+                                    "empresa_nombre": nombre,
+                                    "mentor_email": m_email,
+                                    "mentor_password": raw_password
+                                }
+                                
+                                # Email the Mentor directly
+                                send_email(m_email, "Credenciales de Acceso - Sistema DUAL", "nuevo_mentor.html", context_email)
+                                
+                                st.info(f"Contraseña temporal generada: **{raw_password}** (Guarda esta contraseña, ya fue enviada por correo pero puedes proporcionarla directamente al mentor).")
+                                
+                                # Coordinador Copy (BCC Simulator)
+                                send_email("jairyanez44@gmail.com", f"Copia CCO (Sistema DUAL) - Credenciales {nombre}", "base_notification.html", context)
+                                
+                                st.success(f"Empresa '{nombre}' y Mentor '{m_nombre}' registrados exitosamente. Se ha enviado un correo con la contraseña.")
                                 
                                 st.rerun()
                             
@@ -229,6 +325,27 @@ def render_empresas():
                                     }).eq("id", mm['id']).execute()
                                     st.success("Guardado")
                                     st.rerun()
+                                    
+                            st.divider()
+                            
+                            # Generar nuevo acceso
+                            if st.button("🔑 Generar Nueva Contraseña", key=f"gen_pass_{mm['id']}", help="Genera una nueva contraseña temporal y la envía por correo."):
+                                import random, string, hashlib
+                                raw_pw = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+                                hash_pw = hashlib.sha256(raw_pw.encode('utf-8')).hexdigest()
+                                supabase.table("mentores_ue").update({"password_hash": hash_pw}).eq("id", mm['id']).execute()
+                                
+                                ctx = {
+                                    "mentor_nombre": mm['nombre_completo'],
+                                    "mentor_email": mm.get('email', ''),
+                                    "mentor_password": raw_pw
+                                }
+                                from src.utils.notifications import send_email
+                                send_email(mm.get('email', ''), "Recuperación de Acceso - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                                st.success(f"Contraseña regenerada y enviada a {mm['nombre_completo']}.")
+                                st.info(f"Contraseña temporal nueva: **{raw_pw}** (Cópiala y envíala directamente si es necesario o verifícala aquí).")
+                            
+                            st.divider()
                             
                             if st.button("Eliminar", key=f"del_mue_{mm['id']}"):
                                 supabase.table("mentores_ue").delete().eq("id", mm['id']).execute()

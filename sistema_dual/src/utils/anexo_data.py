@@ -99,4 +99,4 @@ def get_anexo_5_1_data(student_id):
         "actividades_list": actividades_list
     }
     
-    return context, "OK"
+    return context, None

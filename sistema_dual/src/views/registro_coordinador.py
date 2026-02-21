@@ -44,10 +44,19 @@ def render_registro_coordinador():
                 min_dob = date(1950, 1, 1)
                 max_dob = date(2020, 12, 31)
                 default_dob = date(2000, 1, 1)
-                fecha_nac = st.date_input("Fecha de Nacimiento", value=default_dob, min_value=min_dob, max_value=max_dob)
+                
+                prev_dob = st.session_state["coord_student_data"].get("fecha_nacimiento")
+                if isinstance(prev_dob, str):
+                    try: prev_dob = datetime.strptime(prev_dob, "%Y-%m-%d").date()
+                    except: prev_dob = default_dob
+                
+                fecha_nac = st.date_input("Fecha de Nacimiento", value=prev_dob if prev_dob else default_dob, min_value=min_dob, max_value=max_dob)
                 
                 edad = calculate_age(fecha_nac)
                 st.info(f"Edad calculada: {edad} años")
+                
+                tipo_ingreso_opts = ["Nuevo Ingreso", "Reinscripción"]
+                tipo_ingreso = st.selectbox("Tipo de Ingreso", tipo_ingreso_opts, index=tipo_ingreso_opts.index(st.session_state["coord_student_data"].get("tipo_ingreso", "Nuevo Ingreso")))
                 
                 email_inst = st.text_input("Correo Institucional", value=st.session_state["coord_student_data"].get("email_institucional", ""))
                 email_pers = st.text_input("Correo Personal", value=st.session_state["coord_student_data"].get("email_personal", ""))
@@ -55,6 +64,7 @@ def render_registro_coordinador():
 
             carrera = st.selectbox("Carrera", ["Ingeniería en Sistemas Computacionales", "Ingeniería Industrial", "Ingeniería Mecánica"])
             semestre = st.selectbox("Semestre", ["6", "7", "8", "9"])
+            ultimo_semestre_convenio = st.checkbox("¿Es su último semestre de convenio (Por egresar/cerrar expediente)?", value=st.session_state["coord_student_data"].get("ultimo_semestre_convenio", False))
             
             submitted = st.form_submit_button("Siguiente >")
             if submitted:
@@ -68,7 +78,9 @@ def render_registro_coordinador():
                         "genero": genero, "estado_civil": estado_civil,
                         "email_institucional": email_inst, "email_personal": email_pers, "telefono": telefono,
                         "carrera": carrera,
-                        "semestre": semestre
+                        "semestre": semestre,
+                        "tipo_ingreso": tipo_ingreso,
+                        "ultimo_semestre_convenio": ultimo_semestre_convenio
                     })
                     st.session_state["coord_reg_step"] = 2
                     st.rerun()
@@ -98,10 +110,20 @@ def render_registro_coordinador():
             mentor_id = mentor_options.get(selected_mentor_name)
 
         with col_proj2:
-            nombre_proyecto = st.text_input("Nombre del Proyecto")
-            descripcion_proyecto = st.text_area("Descripción del Proyecto")
-            fecha_inicio = st.date_input("Fecha Inicio Convenio", value=date.today())
-            fecha_fin = st.date_input("Fecha Fin Convenio", value=date.today())
+            nombre_proyecto = st.text_input("Nombre del Proyecto", value=st.session_state.get("coord_project_data", {}).get("nombre_proyecto", ""))
+            descripcion_proyecto = st.text_area("Descripción del Proyecto", value=st.session_state.get("coord_project_data", {}).get("descripcion_proyecto", ""))
+            marco_teorico = st.text_area("Marco Teórico / Justificación", value=st.session_state.get("coord_project_data", {}).get("marco_teorico", ""))
+            
+            prev_start = st.session_state.get("coord_project_data", {}).get("fecha_inicio", str(date.today()))
+            prev_end = st.session_state.get("coord_project_data", {}).get("fecha_fin", str(date.today()))
+            
+            try: prev_start = datetime.strptime(prev_start, "%Y-%m-%d").date()
+            except: prev_start = date.today()
+            try: prev_end = datetime.strptime(prev_end, "%Y-%m-%d").date()
+            except: prev_end = date.today()
+
+            fecha_inicio = st.date_input("Fecha Inicio Convenio", value=prev_start)
+            fecha_fin = st.date_input("Fecha Fin Convenio", value=prev_end)
 
         col_nav1, col_nav2 = st.columns([1, 1])
         if col_nav1.button("< Anterior"):
@@ -119,6 +141,7 @@ def render_registro_coordinador():
                      "mentor_ue_id": mentor_id,
                      "nombre_proyecto": nombre_proyecto,
                      "descripcion_proyecto": descripcion_proyecto,
+                     "marco_teorico": marco_teorico,
                      "fecha_inicio": str(fecha_inicio),
                      "fecha_fin": str(fecha_fin),
                      "ue_name": selected_ue_name,
@@ -154,6 +177,7 @@ def render_registro_coordinador():
                 teacher_id = teacher_options.get(sel_teacher_name)
             with c3:
                 grupo = st.text_input("Grupo", value="8101")
+                actividades = st.text_area("Actividades que desarrollará el alumno en relación a esta materia", help="Descripción breve de lo que hará en la empresa que sirva para evaluar.")
             with c4:
                 st.write("Parciales:")
                 p1 = st.checkbox("P1", value=True)
@@ -171,6 +195,7 @@ def render_registro_coordinador():
                         "grupo": grupo,
                         "asignatura_name": sel_subj_name, 
                         "maestro_name": sel_teacher_name,
+                        "actividades": actividades,
                         "p1": p1, "p2": p2, "p3": p3
                     })
                     st.success("Materia agregada.")

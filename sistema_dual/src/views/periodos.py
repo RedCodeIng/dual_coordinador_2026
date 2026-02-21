@@ -3,6 +3,13 @@ from datetime import datetime
 from src.db_connection import get_supabase_client
 from src.utils.email_sender import send_period_invites
 
+def wipe_mentor_passwords(supabase):
+    """Borra todas las contraseñas de los Mentores UE cuando se cierra un periodo."""
+    try:
+        supabase.table("mentores_ue").update({"password_hash": None}).neq("nombre_completo", "").execute()
+    except Exception as e:
+        print(f"Error wiped: {e}")
+
 def render_periodos():
     st.subheader("Gestión de Periodos Escolares")
     
@@ -25,33 +32,38 @@ def render_periodos():
             with c_dates3:
                 fecha_limite = st.date_input("Fecha Límite Registro", value=datetime.today())
 
-            st.markdown("###### Sub-Periodos para Envío de Documentos")
-            st.caption("Configura las fechas dentro del periodo actual en las que se podrán generar y enviar estos Anexos/Documentos.")
+            st.markdown("###### Las 5 Fases DUAL")
+            st.caption("Configura las fechas dentro del periodo actual para cada fase del modelo DUAL.")
+            st.info("Fase 1: Registro de Alumnos. (Utiliza la Fecha Límite de Registro de arriba)")
             
-            # Anexo 1
+            # Fase 2
+            st.write("**Fase 2: Asignación (Plan de Formación Anexo 5.1)** - Se asigna Mentor IE, se genera Anexo 5.1 y Cartas.")
             col_d1_start, col_d1_end = st.columns(2)
-            d1_inicio = col_d1_start.date_input("Inicio Anexo 1 (Plan de Formación)", value=datetime.today())
-            d1_fin = col_d1_end.date_input("Fin Anexo 1", value=datetime.today())
+            d1_inicio = col_d1_start.date_input("Inicio Fase 2", value=datetime.today())
+            d1_fin = col_d1_end.date_input("Fin Fase 2", value=datetime.today())
             
-            # Anexo 2
+            # Fase 3
+            st.write("**Fase 3: Evaluación UE (70%)** - Mentores de Empresa (UE) envían Anexo 5.4 y evalúan competencia.")
             col_d2_start, col_d2_end = st.columns(2)
-            d2_inicio = col_d2_start.date_input("Inicio Anexo 2 (Carta de Asignación)", value=datetime.today())
-            d2_fin = col_d2_end.date_input("Fin Anexo 2", value=datetime.today())
+            d2_inicio = col_d2_start.date_input("Inicio Fase 3", value=datetime.today())
+            d2_fin = col_d2_end.date_input("Fin Fase 3", value=datetime.today())
             
-            # Anexo 3
+            # Fase 4
+            st.write("**Fase 4: Evaluación IE (30%)** - Mentores Académicos evalúan por materia.")
             col_d3_start, col_d3_end = st.columns(2)
-            d3_inicio = col_d3_start.date_input("Inicio Anexo 3 (Reporte Bimestral)", value=datetime.today())
-            d3_fin = col_d3_end.date_input("Fin Anexo 3", value=datetime.today())
+            d3_inicio = col_d3_start.date_input("Inicio Fase 4", value=datetime.today())
+            d3_fin = col_d3_end.date_input("Fin Fase 4", value=datetime.today())
             
-            # Documento 4
+            # Fase 5
+            st.write("**Fase 5: Cierre** - Finalización y actas firmadas.")
             col_d4_start, col_d4_end = st.columns(2)
-            d4_inicio = col_d4_start.date_input("Inicio Doc 4 (Pendiente)", value=datetime.today())
-            d4_fin = col_d4_end.date_input("Fin Doc 4", value=datetime.today())
+            d4_inicio = col_d4_start.date_input("Inicio Fase 5", value=datetime.today())
+            d4_fin = col_d4_end.date_input("Fin Fase 5", value=datetime.today())
             
-            # Documento 5
+            # Extensión / Otros
             col_d5_start, col_d5_end = st.columns(2)
-            d5_inicio = col_d5_start.date_input("Inicio Doc 5 (Pendiente)", value=datetime.today())
-            d5_fin = col_d5_end.date_input("Fin Doc 5", value=datetime.today())
+            d5_inicio = col_d5_start.date_input("Extensión/Opcional (Inicio)", value=datetime.today())
+            d5_fin = col_d5_end.date_input("Extensión/Opcional (Fin)", value=datetime.today())
             st.divider()
             notificar_correo = st.text_input("Enviar calendario (.ics) a este correo (opcional):", help="Si proporcionas un correo, enviaremos archivos de calendario para que los guardes y recuerdes las fechas límite de los documentos.")
             is_active = st.checkbox("Establecer como Activo", value=False)
@@ -68,6 +80,7 @@ def render_periodos():
                             if coordinator_career_id:
                                 query_deact = query_deact.eq("carrera_id", coordinator_career_id)
                             query_deact.execute()
+                            wipe_mentor_passwords(supabase)
                         
                         new_period = {
                             "nombre": nombre_periodo,
@@ -123,14 +136,23 @@ def render_periodos():
             c1.caption(f"📅 **Inicio:** {p.get('fecha_inicio', 'N/A')} &nbsp;|&nbsp; **Fin:** {p.get('fecha_fin', 'N/A')}")
             c1.caption(f"📝 **Límite Registro:** {p.get('fecha_limite_registro', 'N/A')}")
             
+            with c1.expander("Ver Fechas de Entrega (Anexos)", expanded=False):
+                st.markdown(f"""
+                - **Fase 1 (Registro):** Hasta {p.get('fecha_limite_registro', 'N/A')}
+                - **Fase 2 (Asignación/A5.1):** {p.get('inicio_anexo_1', 'N/A')} al {p.get('fin_anexo_1', 'N/A')}
+                - **Fase 3 (Eval. UE 70%):** {p.get('inicio_anexo_2', 'N/A')} al {p.get('fin_anexo_2', 'N/A')}
+                - **Fase 4 (Eval. IE 30%):** {p.get('inicio_anexo_3', 'N/A')} al {p.get('fin_anexo_3', 'N/A')}
+                - **Fase 5 (Cierre):** {p.get('inicio_doc_4', 'N/A')} al {p.get('fin_doc_4', 'N/A')}
+                """)
+            
             if p['activo']:
                 c2.success("ACTIVO")
             else:
                 c2.caption("Inactivo")
                 
+            col_actions = st.columns([1, 1, 1, 1])
+            
             if not p['activo']:
-                col_actions = st.columns([1, 1, 1])
-                
                 # Activate Button
                 if col_actions[0].button("activar", key=f"btn_act_{p['id']}", help="Establecer como periodo activo actual"):
                      # Deactivate all (Scoped)
@@ -138,74 +160,76 @@ def render_periodos():
                     if coordinator_career_id:
                         q_d = q_d.eq("carrera_id", coordinator_career_id)
                     q_d.execute()
+                    wipe_mentor_passwords(supabase)
                     
                     # Activate this one
                     supabase.table("periodos").update({"activo": True}).eq("id", p['id']).execute()
                     st.rerun()
 
-                # Edit Button (Expander)
-                with col_actions[1].popover("Editar"):
-                    st.markdown(f"Editar **{p['nombre']}**")
-                    with st.form(f"edit_period_{p['id']}"):
-                        new_name = st.text_input("Nombre", value=p['nombre'])
-                        # Parse dates if they are strings, or keep if date objects (usually strings from JSON)
-                        # Helper to parse YYYY-MM-DD
-                        def parse_date(d_str):
-                            if isinstance(d_str, str):
-                                return datetime.strptime(d_str, '%Y-%m-%d').date()
-                            return d_str
+            # Edit Button (Expander)
+            with col_actions[1].popover("Editar"):
+                st.markdown(f"Editar **{p['nombre']}**")
+                with st.form(f"edit_period_{p['id']}"):
+                    new_name = st.text_input("Nombre", value=p['nombre'])
+                    # Parse dates if they are strings, or keep if date objects (usually strings from JSON)
+                    # Helper to parse YYYY-MM-DD
+                    def parse_date(d_str):
+                        if isinstance(d_str, str):
+                            return datetime.strptime(d_str, '%Y-%m-%d').date()
+                        return d_str
 
-                        n_inicio = st.date_input("Inicio", value=parse_date(p.get('fecha_inicio', datetime.today())))
-                        n_fin = st.date_input("Fin", value=parse_date(p.get('fecha_fin', datetime.today())))
-                        n_lim = st.date_input("Límite Reg.", value=parse_date(p.get('fecha_limite_registro', datetime.today())))
-                        
-                        st.markdown("###### Sub-Periodos (Ej. Anexos)")
-                        
-                        # Anexo 1 Edit
-                        ce_d1_1, ce_d1_2 = st.columns(2)
-                        n_d1_inicio = ce_d1_1.date_input("Inicio A1", value=parse_date(p.get("inicio_anexo_1", n_inicio)))
-                        n_d1_fin = ce_d1_2.date_input("Fin A1", value=parse_date(p.get("fin_anexo_1", n_fin)))
-                        
-                        # Anexo 2 Edit
-                        ce_d2_1, ce_d2_2 = st.columns(2)
-                        n_d2_inicio = ce_d2_1.date_input("Inicio A2", value=parse_date(p.get("inicio_anexo_2", n_inicio)))
-                        n_d2_fin = ce_d2_2.date_input("Fin A2", value=parse_date(p.get("fin_anexo_2", n_fin)))
-                        
-                        # Anexo 3 Edit
-                        ce_d3_1, ce_d3_2 = st.columns(2)
-                        n_d3_inicio = ce_d3_1.date_input("Inicio A3", value=parse_date(p.get("inicio_anexo_3", n_inicio)))
-                        n_d3_fin = ce_d3_2.date_input("Fin A3", value=parse_date(p.get("fin_anexo_3", n_fin)))
+                    n_inicio = st.date_input("Inicio", value=parse_date(p.get('fecha_inicio', datetime.today())))
+                    n_fin = st.date_input("Fin", value=parse_date(p.get('fecha_fin', datetime.today())))
+                    n_lim = st.date_input("Límite Reg.", value=parse_date(p.get('fecha_limite_registro', datetime.today())))
+                    
+                    st.markdown("###### Fases del Modelo DUAL")
+                    
+                    # Fase 2
+                    ce_d1_1, ce_d1_2 = st.columns(2)
+                    n_d1_inicio = ce_d1_1.date_input("Inicio Fase 2", value=parse_date(p.get("inicio_anexo_1", n_inicio)))
+                    n_d1_fin = ce_d1_2.date_input("Fin Fase 2", value=parse_date(p.get("fin_anexo_1", n_fin)))
+                    
+                    # Fase 3
+                    ce_d2_1, ce_d2_2 = st.columns(2)
+                    n_d2_inicio = ce_d2_1.date_input("Inicio Fase 3", value=parse_date(p.get("inicio_anexo_2", n_inicio)))
+                    n_d2_fin = ce_d2_2.date_input("Fin Fase 3", value=parse_date(p.get("fin_anexo_2", n_fin)))
+                    
+                    # Fase 4
+                    ce_d3_1, ce_d3_2 = st.columns(2)
+                    n_d3_inicio = ce_d3_1.date_input("Inicio Fase 4", value=parse_date(p.get("inicio_anexo_3", n_inicio)))
+                    n_d3_fin = ce_d3_2.date_input("Fin Fase 4", value=parse_date(p.get("fin_anexo_3", n_fin)))
 
-                        # Doc 4 Edit
-                        ce_d4_1, ce_d4_2 = st.columns(2)
-                        n_d4_inicio = ce_d4_1.date_input("Inicio Doc 4", value=parse_date(p.get("inicio_doc_4", n_inicio)))
-                        n_d4_fin = ce_d4_2.date_input("Fin Doc 4", value=parse_date(p.get("fin_doc_4", n_fin)))
+                    # Fase 5
+                    ce_d4_1, ce_d4_2 = st.columns(2)
+                    n_d4_inicio = ce_d4_1.date_input("Inicio Fase 5", value=parse_date(p.get("inicio_doc_4", n_inicio)))
+                    n_d4_fin = ce_d4_2.date_input("Fin Fase 5", value=parse_date(p.get("fin_doc_4", n_fin)))
 
-                        # Doc 5 Edit
-                        ce_d5_1, ce_d5_2 = st.columns(2)
-                        n_d5_inicio = ce_d5_1.date_input("Inicio Doc 5", value=parse_date(p.get("inicio_doc_5", n_inicio)))
-                        n_d5_fin = ce_d5_2.date_input("Fin Doc 5", value=parse_date(p.get("fin_doc_5", n_fin)))
-                        
-                        if st.form_submit_button("Guardar Cambios"):
-                            supabase.table("periodos").update({
-                                "nombre": new_name,
-                                "fecha_inicio": str(n_inicio),
-                                "fecha_fin": str(n_fin),
-                                "fecha_limite_registro": str(n_lim),
-                                "inicio_anexo_1": str(n_d1_inicio),
-                                "fin_anexo_1": str(n_d1_fin),
-                                "inicio_anexo_2": str(n_d2_inicio),
-                                "fin_anexo_2": str(n_d2_fin),
-                                "inicio_anexo_3": str(n_d3_inicio),
-                                "fin_anexo_3": str(n_d3_fin),
-                                "inicio_doc_4": str(n_d4_inicio),
-                                "fin_doc_4": str(n_d4_fin),
-                                "inicio_doc_5": str(n_d5_inicio),
-                                "fin_doc_5": str(n_d5_fin),
-                            }).eq("id", p['id']).execute()
-                            st.success("Actualizado")
-                            st.rerun()
-                
+                    # Doc 5 Edit
+                    ce_d5_1, ce_d5_2 = st.columns(2)
+                    n_d5_inicio = ce_d5_1.date_input("Inicio Extra", value=parse_date(p.get("inicio_doc_5", n_inicio)))
+                    n_d5_fin = ce_d5_2.date_input("Fin Extra", value=parse_date(p.get("fin_doc_5", n_fin)))
+                    
+                    if st.form_submit_button("Guardar Cambios"):
+                        supabase.table("periodos").update({
+                            "nombre": new_name,
+                            "fecha_inicio": str(n_inicio),
+                            "fecha_fin": str(n_fin),
+                            "fecha_limite_registro": str(n_lim),
+                            "inicio_anexo_1": str(n_d1_inicio),
+                            "fin_anexo_1": str(n_d1_fin),
+                            "inicio_anexo_2": str(n_d2_inicio),
+                            "fin_anexo_2": str(n_d2_fin),
+                            "inicio_anexo_3": str(n_d3_inicio),
+                            "fin_anexo_3": str(n_d3_fin),
+                            "inicio_doc_4": str(n_d4_inicio),
+                            "fin_doc_4": str(n_d4_fin),
+                            "inicio_doc_5": str(n_d5_inicio),
+                            "fin_doc_5": str(n_d5_fin),
+                        }).eq("id", p['id']).execute()
+                        st.success("Actualizado")
+                        st.rerun()
+            
+            if not p['activo']:
                 # Delete Button
                 with col_actions[2].popover("Eliminar"):
                     st.error("¿Seguro de eliminar este periodo y todos sus datos relacionados?")
@@ -217,8 +241,108 @@ def render_periodos():
                         except Exception as e:
                             st.error(f"Error: {e}")
 
+                # Purge Students Button
+                with col_actions[3].popover("⚠️ Purgar"):
+                    st.error("¿Seguro de ELIMINAR A TODOS LOS ALUMNOS registrados en este periodo? (Esto borrará sus Proyectos, Inscripciones y Anexos permanentemente. Los maestros, empresas y materias quedarán intactos).")
+                    if st.button("Sí, Purgar Alumnos", key=f"purge_p_{p['id']}", type="primary"):
+                        try:
+                            # Find all students associated with this period through proyectos_dual or inscripciones
+                            res_proj = supabase.table("proyectos_dual").select("alumno_id").eq("periodo_id", p['id']).execute()
+                            res_insc = supabase.table("inscripciones_asignaturas").select("alumno_id").eq("periodo_id", p['id']).execute()
+                            
+                            student_ids = set()
+                            if res_proj.data:
+                                student_ids.update([row['alumno_id'] for row in res_proj.data])
+                            if res_insc.data:
+                                student_ids.update([row['alumno_id'] for row in res_insc.data])
+                                
+                            student_ids_list = list(student_ids)
+                            
+                            if student_ids_list:
+                                supabase.table("alumnos").delete().in_("id", student_ids_list).execute()
+                                st.success(f"{len(student_ids_list)} alumnos y sus datos eliminados con éxito del periodo.")
+                            else:
+                                st.info("No se encontraron alumnos en este periodo.")
+                            
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error durante la purga: {e}")
+
             else:
-                 c3.button("ACTIVO (Cerrar)", key=f"btn_close_{p['id']}", help="Click para cerrar (desactivar) este periodo", on_click=lambda: supabase.table("periodos").update({"activo": False}).eq("id", p['id']).execute() or st.rerun())
+                 with c3.popover("⚙️ Cerrar Periodo (Opciones)"):
+                     st.write("**Periodo Activo.** Al cerrar el periodo, se borrarán las contraseñas temporales de los Mentores IE.")
+                     
+                     action_close = st.radio("Acción para los alumnos inscritos:", [
+                         "1) Archivar a Todos (Finalizar)",
+                         "2) Analizar y Retener (Reinscripción Automática)"
+                     ], help="La Opción 2 mantendrá activos a los alumnos cuyo 'ultimo_semestre_convenio' sea Falso, preparándolos para el siguiente periodo. Borrará únicamente su carga académica pero conservará su proyecto.")
+                     
+                     if st.button("Ejecutar Cierre de Periodo", type="primary", key=f"btn_close_adv_{p['id']}"):
+                         try:
+                             # 1. Disable Period & Wipe Passwords
+                             supabase.table("periodos").update({"activo": False}).eq("id", p['id']).execute()
+                             wipe_mentor_passwords(supabase)
+                             
+                             # 2. Handle Students
+                             if "Archivar a Todos" in action_close:
+                                 # This sets statuses to Archivados or leaves them inactive. We'll set estatus to "Terminado"
+                                 # Find all students in this period
+                                 res_proj = supabase.table("proyectos_dual").select("alumno_id").eq("periodo_id", p['id']).execute()
+                                 if res_proj.data:
+                                     s_ids = [r['alumno_id'] for r in res_proj.data]
+                                     supabase.table("alumnos").update({"estatus": "Terminado"}).in_("id", s_ids).execute()
+                                     st.success(f"{len(s_ids)} alumnos marcados como Terminados.")
+                             
+                             elif "Analizar y Retener" in action_close:
+                                 res_proj = supabase.table("proyectos_dual").select("alumno_id").eq("periodo_id", p['id']).execute()
+                                 if res_proj.data:
+                                     s_ids = [r['alumno_id'] for r in res_proj.data]
+                                     res_studs = supabase.table("alumnos").select("id, ultimo_semestre_convenio").in_("id", s_ids).execute()
+                                     
+                                     to_archive = []
+                                     to_keep = []
+                                     if res_studs.data:
+                                         for st_row in res_studs.data:
+                                             if st_row.get("ultimo_semestre_convenio"):
+                                                 to_archive.append(st_row["id"])
+                                             else:
+                                                 to_keep.append(st_row["id"])
+                                     
+                                     # Archive those who finished
+                                     if to_archive:
+                                         supabase.table("alumnos").update({"estatus": "Terminado"}).in_("id", to_archive).execute()
+                                     
+                                     # Set 'to_keep' as 'En Espera de Reinscripción' so they can login and re-register load
+                                     if to_keep:
+                                         supabase.table("alumnos").update({"estatus": "En Espera de Reinscripción"}).in_("id", to_keep).execute()
+                                         # Delete their academic load from this period so that next time they register they start fresh
+                                         supabase.table("inscripciones_asignaturas").delete().in_("alumno_id", to_keep).eq("periodo_id", p['id']).execute()
+                                         st.success(f"{len(to_archive)} archivados. {len(to_keep)} conservan convenio y esperan su nueva carga académica.")
+                             
+                             st.rerun()
+                         except Exception as e:
+                             st.error(f"Error al cerrar periodo: {e}")
+                 
+                 with c3.popover("⚠️ Purgar"):
+                    st.error("¿ELIMINAR A TODOS LOS ALUMNOS de este periodo activo? (Borrando proyectos, inscripciones y anexos).")
+                    if st.button("Sí, Purgar Alumnos", key=f"purge_act_{p['id']}", type="primary"):
+                        try:
+                            res_proj = supabase.table("proyectos_dual").select("alumno_id").eq("periodo_id", p['id']).execute()
+                            res_insc = supabase.table("inscripciones_asignaturas").select("alumno_id").eq("periodo_id", p['id']).execute()
+                            
+                            student_ids = set()
+                            if res_proj.data: student_ids.update([row['alumno_id'] for row in res_proj.data])
+                            if res_insc.data: student_ids.update([row['alumno_id'] for row in res_insc.data])
+                                
+                            student_ids_list = list(student_ids)
+                            if student_ids_list:
+                                supabase.table("alumnos").delete().in_("id", student_ids_list).execute()
+                                st.success(f"{len(student_ids_list)} alumnos eliminados.")
+                            else:
+                                st.info("No hay alumnos.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
                  
             st.divider()
     else:

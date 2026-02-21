@@ -38,9 +38,8 @@ def inject_custom_css():
         }
 
         /* STREAMLIT OVERRIDES */
-        /* Hide default header/footer/menu */
+        /* Hide default footer and menu, leave header for sidebar toggle */
         #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
         footer {visibility: hidden;}
         
         /* Main Container Padding */
@@ -85,6 +84,16 @@ def inject_custom_css():
         .stTextInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
             border-color: var(--secondary);
             box-shadow: 0 0 0 2px rgba(164, 136, 87, 0.2);
+        }
+
+        /* SIDEBAR FONT SIZES */
+        section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+            font-size: 1.25rem !important;
+            padding-top: 0.3rem;
+            padding-bottom: 0.3rem;
+        }
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+            font-size: 1.5rem !important;
         }
 
         /* CARDS (METRICS) */

@@ -6,6 +6,7 @@ from src.views.registro_coordinador import render_registro_coordinador
 from src.views.maestros import render_maestros
 from src.views.asignaturas import render_asignaturas
 from src.views.empresas import render_empresas
+from src.views.pruebas_documentos import render_pruebas_documentos
 
 def render_dashboard():
     # Context
@@ -40,47 +41,60 @@ def render_dashboard():
 
     st.markdown("---")
 
-    # Main Navigation via Tabs (Always Visible)
-    t_reportes, t_alumnos, t_maestros, t_asignaturas, t_empresas, t_periodos, t_lista = st.tabs([
-        "📊 Reportes y Analítica",
-        "🎓 Alumnos", 
-        "👨‍🏫 Maestros", 
-        "📚 Asignaturas", 
-        "🏢 Unidades Económicas", 
-        "📅 Periodos",
-        "📋 Lista Blanca"
-    ])
+    st.markdown("---")
 
-    with t_reportes:
+    # Sidebar Navigation
+    st.sidebar.markdown("### 📋 Navegación DUAL")
+    
+    menu_sections = {
+        "📊 Reportes y Analítica": "reportes",
+        "🎓 Alumnos": "alumnos",
+        "👨‍🏫 Maestros": "maestros",
+        "📚 Asignaturas": "asignaturas",
+        "🏢 Unidades Económicas": "empresas",
+        "📅 Periodos": "periodos",
+        "📋 Lista Blanca": "lista",
+        "📄 Pruebas de Documentos": "pruebas",
+        "🚀 Control de Fases (5F)": "fases"
+    }
+    
+    selected_menu = st.sidebar.radio("Seleccione un Módulo:", list(menu_sections.keys()))
+    active_module = menu_sections[selected_menu]
+    
+    st.sidebar.markdown("---")
+    st.sidebar.info("Sistema de Gestión DUAL - Versión con Control de Fases Activo.")
+
+    # Render Active Module
+    if active_module == "reportes":
         try:
             from src.views.reportes import render_reportes
             render_reportes()
         except Exception as e:
             st.error(f"Error cargando reportes: {e}")
-
-    with t_alumnos:
+            
+    elif active_module == "alumnos":
         from src.views.alumnos import render_alumnos
         render_alumnos()
-
-    with t_maestros:
+        
+    elif active_module == "maestros":
         try:
             render_maestros()
         except Exception as e:
             st.error(f"Error cargando maestros: {e}")
-
-    with t_asignaturas:
+            
+    elif active_module == "asignaturas":
         try:
             render_asignaturas()
         except Exception as e:
             st.error(f"Error cargando asignaturas: {e}")
-
-    with t_empresas:
+            
+    elif active_module == "empresas":
         try:
             render_empresas()
         except Exception as e:
             st.error(f"Error cargando empresas: {e}")
-
-    with t_periodos:
+            
+    elif active_module == "periodos":
         try:
             from src.views.periodos import render_periodos
             render_periodos()
@@ -89,7 +103,7 @@ def render_dashboard():
         except Exception as e:
             st.error(f"Error cargando periodos: {e}")
             
-    with t_lista:
+    elif active_module == "lista":
         try:
             from src.views.lista_blanca import render_lista_blanca
             render_lista_blanca()
@@ -97,3 +111,16 @@ def render_dashboard():
             st.warning("Módulo de Lista Blanca no encontrado.")
         except Exception as e:
             st.error(f"Error cargando lista blanca: {e}")
+            
+    elif active_module == "pruebas":
+        try:
+            render_pruebas_documentos()
+        except Exception as e:
+            st.error(f"Error cargando pruebas de documentos: {e}")
+            
+    elif active_module == "fases":
+        try:
+            from src.views.envios_correos import render_fases_control
+            render_fases_control()
+        except ImportError:
+            st.info("Módulo de Control de Fases en desarrollo. Próximamente.")

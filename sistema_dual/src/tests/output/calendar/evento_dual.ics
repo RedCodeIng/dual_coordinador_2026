@@ -1,0 +1,14 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Tecnológico de Estudios Superiores de Ecatepec//Sistema DUAL//ES
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+DTSTAMP:20260221T092750Z
+UID:20260221T092750Z--8939144091813270191@sistemadual.tese.edu.mx
+DTSTART;VALUE=DATE:20260605
+DTEND;VALUE=DATE:20260606
+SUMMARY:Límite: Subir Evaluación IE (30%) al Sistema DUAL
+DESCRIPTION:Recuerde subir las calificaciones finales de sus alumnos DUAL correspondientes al 30% Institucional.
+LOCATION:Sistema de Gestión DUAL
+END:VEVENT
+END:VCALENDAR

@@ -105,6 +105,7 @@ def render_registro():
         with col_proj2:
             nombre_proyecto = st.text_input("Nombre del Proyecto")
             descripcion_proyecto = st.text_area("Descripción del Proyecto")
+            marco_teorico = st.text_area("Marco Teórico / Justificación", help="Describe brevemente el marco teórico de tu proyecto Dual.")
             fecha_inicio = st.date_input("Fecha Inicio Convenio", value=date.today())
             fecha_fin = st.date_input("Fecha Fin Convenio", value=date.today())
 
@@ -119,6 +120,7 @@ def render_registro():
                  "mentor_ue_id": mentor_id,
                  "nombre_proyecto": nombre_proyecto,
                  "descripcion_proyecto": descripcion_proyecto,
+                 "marco_teorico": marco_teorico,
                  "fecha_inicio": str(fecha_inicio),
                  "fecha_fin": str(fecha_fin),
                  "ue_name": selected_ue_name, # Storing names for summary
@@ -159,6 +161,8 @@ def render_registro():
                 p2 = st.checkbox("P2", value=True)
                 p3 = st.checkbox("P3", value=True)
             
+            actividades = st.text_area("Descripción de Actividades a desarrollar en esta materia respecto al Proyecto Dual", help="Describe brevemente qué harás en relación a esta materia.")
+            
             submitted_subj = st.form_submit_button("Agregar Materia")
             if submitted_subj:
                 st.session_state["subjects_data"].append({
@@ -167,6 +171,7 @@ def render_registro():
                     "grupo": grupo,
                     "asignatura_name": sel_subj_name, # For display
                     "maestro_name": sel_teacher_name,
+                    "actividades": actividades,
                     "p1": p1, "p2": p2, "p3": p3
                 })
                 st.success("Materia agregada.")
@@ -210,8 +215,30 @@ def render_registro():
                     st.balloons()
                     st.success("¡Inscripción Exitosa!")
                     # Email
-                    from src.utils.email_sender import send_confirmation_email
-                    send_confirmation_email(user.get("email_personal", "test@example.com"), user.get("nombre"))
+                    from src.utils.notifications import send_email
+                    
+                    academic_load_html = ""
+                    for s in subjs:
+                        academic_load_html += f"<tr><td>{s.get('clave_asignatura', '-')}</td><td>{s.get('nombre', 'Materia')}</td><td colspan='2'>Validación Pendiente</td></tr>"
+                    if not academic_load_html:
+                        academic_load_html = "<tr><td colspan='4'>No se registraron materias.</td></tr>"
+                        
+                    ctx = {
+                        "titulo_principal": "¡Registro Completado Exitosamente!",
+                        "nombre_destinatario": f"{user.get('nombre')} {user.get('ap_paterno')}",
+                        "nombre_alumno": f"{user.get('nombre')} {user.get('ap_paterno')}",
+                        "matricula": user.get('matricula'),
+                        "carrera": "Carrera Técnica", # Simplified fallback
+                        "correo_institucional": user.get("email_institucional") or user.get("email_personal"),
+                        "telefono": user.get('telefono'),
+                        "filas_carga_academica": academic_load_html,
+                        "empresa_sede": proj.get('ue_name', ''),
+                        "mentor_ue_nombre": proj.get('mentor_name', ''),
+                        "frase_inspiradora": "El aprendizaje en la práctica es el puente que transforma el talento estudiantil en excelencia profesional."
+                    }
+                    target = user.get("email_institucional") or user.get("email_personal")
+                    if target:
+                        send_email(target, "Sistema DUAL - Registro Confirmado", "registro_alumno.html", ctx)
                     st.session_state["registro_complete"] = True
                 else:
                     st.error(f"Error: {msg}")

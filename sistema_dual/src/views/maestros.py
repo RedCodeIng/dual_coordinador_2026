@@ -27,12 +27,35 @@ def render_maestros():
         res = query.execute()
         
         if res.data:
-            df = pd.DataFrame(res.data)
+            # Add Select All functionality
+            col_sa1, col_sa2 = st.columns([1, 4])
+            with col_sa1:
+                select_all = st.checkbox("☑️ Seleccionar Todos", key="sel_all_maestros")
+                
+            if st.session_state.get("prev_sel_all_maestros") != select_all:
+                st.session_state["prev_sel_all_maestros"] = select_all
+                for m in res.data:
+                    st.session_state[f"sel_m_{m['id']}"] = select_all
+                    
+            hc0, hc1, hc2, hc3, hc4 = st.columns([0.5, 1, 3, 2, 2])
+            hc0.write("**Sel.**")
+            hc1.write("**Clave**")
+            hc2.write("**Nombre Completo**")
+            hc3.write("**Email Institucional**")
+            st.divider()
+            
+            selected_teachers = []
             
             # Use detailed view instead of just a dataframe
             for m in res.data:
                 cont = st.container()
-                c1, c2, c3, c4 = cont.columns([2, 3, 2, 2])
+                c0, c1, c2, c3, c4 = cont.columns([0.5, 1, 3, 2, 2])
+                
+                with c0:
+                    is_checked = st.checkbox(" ", key=f"sel_m_{m['id']}")
+                    if is_checked:
+                        selected_teachers.append(m['id'])
+                        
                 c1.write(f"**{m['clave_maestro']}**")
                 c2.write(f"{m['nombre_completo']}")
                 c3.write(f"{m['email_institucional']}")
@@ -67,6 +90,24 @@ def render_maestros():
 
                     st.divider()
 
+                    if m.get('es_mentor_ie'):
+                        if st.button("🔑 Generar Contraseña (Mentor IE)", key=f"gen_pass_ie_{m['id']}", help="Genera una nueva contraseña temporal y la envía por correo."):
+                            import random, string, hashlib
+                            raw_pw = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+                            hash_pw = hashlib.sha256(raw_pw.encode('utf-8')).hexdigest()
+                            supabase.table("maestros").update({"password_hash": hash_pw}).eq("id", m['id']).execute()
+                            
+                            ctx = {
+                                "mentor_nombre": m['nombre_completo'],
+                                "mentor_email": m.get('email_institucional', ''),
+                                "mentor_password": raw_pw
+                            }
+                            from src.utils.notifications import send_email
+                            send_email(m.get('email_institucional', ''), "Credenciales de Acceso Mentor IE - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                            st.success(f"Contraseña de Mentor IE regenerada y enviada a {m['nombre_completo']}.")
+                            st.info(f"Contraseña temporal nueva: **{raw_pw}**")
+                        st.divider()
+
                     # Delete Button
                     st.error("Zona de Peligro")
                     if st.button("Eliminar Maestro", key=f"del_m_{m['id']}"):
@@ -75,6 +116,48 @@ def render_maestros():
                         st.rerun()
                 
                 st.divider()
+
+            # Batch Action Area
+            if selected_teachers:
+                st.warning(f"⚠️ {len(selected_teachers)} maestro(s) seleccionado(s) para dar de baja.")
+                with st.form("batch_delete_maestros_form"):
+                    confirm_batch = st.checkbox("Confirmar eliminación definitiva de los maestros seleccionados.")
+                    if st.form_submit_button("Eliminar Seleccionados"):
+                        if confirm_batch:
+                            try:
+                                supabase.table("maestros").delete().in_("id", selected_teachers).execute()
+                                st.success(f"{len(selected_teachers)} maestro(s) eliminados correctamente.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error en baja masiva: {e}")
+                        else:
+                            st.error("Por favor, marque la casilla de confirmación para proceder.")
+                            
+                st.info(f"ℹ️ {len(selected_teachers)} maestro(s) seleccionado(s) para enviar credenciales.")
+                with st.form("batch_send_credentials_maestros_form"):
+                    if st.form_submit_button("📧 Enviar Credenciales a Mentores IE Seleccionados"):
+                        import random, string, hashlib
+                        from src.utils.notifications import send_email
+                        
+                        sent_count = 0
+                        for t_id in selected_teachers:
+                            # Only send to those who are actually Mentores IE
+                            t_info = next((t for t in res.data if t['id'] == t_id), None)
+                            if t_info and t_info.get('es_mentor_ie') and t_info.get('email_institucional'):
+                                raw_pw = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+                                hash_pw = hashlib.sha256(raw_pw.encode('utf-8')).hexdigest()
+                                supabase.table("maestros").update({"password_hash": hash_pw}).eq("id", t_id).execute()
+                                
+                                ctx = {
+                                    "mentor_nombre": t_info['nombre_completo'],
+                                    "mentor_email": t_info['email_institucional'],
+                                    "mentor_password": raw_pw
+                                }
+                                send_email(t_info['email_institucional'], "Credenciales de Acceso Mentor IE - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                                sent_count += 1
+                                
+                        st.success(f"Se generaron y enviaron credenciales a {sent_count} Mentores IE.")
+                        # We don't always rerun immediately to let them read the success message.
 
         else:
             st.info(f"No hay maestros registrados para {selected_career_name}.")
