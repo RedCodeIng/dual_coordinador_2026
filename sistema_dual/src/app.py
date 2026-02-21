@@ -11,18 +11,7 @@ from src.views.dashboard import render_dashboard
 from src.views.registro import render_registro
 from src.utils.ui import inject_custom_css, render_header
 
-# Page Configuration (Must be first)
-st.set_page_config(
-    page_title="Sistema de Gestión DUAL",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': "Sistema de Gestión DUAL - EdoMex"
-    }
-)
+
 
 def main():
     # 1. Inject Global CSS
