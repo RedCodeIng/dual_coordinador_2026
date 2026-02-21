@@ -2,19 +2,6 @@ import sys
 import os
 import streamlit as st
 
-# MUST BE THE FIRST STREAMLIT COMMAND
-st.set_page_config(
-    page_title="Sistema de Gestión DUAL",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': "Sistema de Gestión DUAL - EdoMex"
-    }
-)
-
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -23,9 +10,20 @@ from src.views.dashboard import render_dashboard
 from src.views.registro import render_registro
 from src.utils.ui import inject_custom_css, render_header
 
-
-
 def main():
+    # MUST BE THE FIRST STREAMLIT COMMAND
+    st.set_page_config(
+        page_title="Sistema de Gestión DUAL",
+        page_icon="🎓",
+        layout="wide",
+        initial_sidebar_state="expanded",
+        menu_items={
+            'Get Help': None,
+            'Report a bug': None,
+            'About': "Sistema de Gestión DUAL - EdoMex"
+        }
+    )
+
     # 1. Inject Global CSS
     inject_custom_css()
     
