@@ -71,6 +71,11 @@ def render_maestros():
                         e_mentor = st.checkbox("Es Mentor IE", value=m['es_mentor_ie'])
                         
                         if st.form_submit_button("Guardar Cambios"):
+                            e_clave = e_clave.strip()
+                            e_nombre = e_nombre.strip()
+                            e_email = e_email.strip()
+                            e_tel = e_tel.strip()
+                            
                             supabase.table("maestros").update({
                                 "clave_maestro": e_clave,
                                 "nombre_completo": e_nombre,
@@ -284,6 +289,11 @@ def render_maestros():
             submitted = st.form_submit_button("Guardar Maestro")
             
             if submitted:
+                clave = clave.strip()
+                nombre = nombre.strip()
+                email = email.strip()
+                telefono = telefono.strip()
+                
                 if not clave or not nombre or not email:
                     st.error("Clave, Nombre y Correo son obligatorios.")
                 elif not selected_career_id:

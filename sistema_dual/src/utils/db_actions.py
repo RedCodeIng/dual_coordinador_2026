@@ -29,6 +29,16 @@ def create_student_transaction(student_data, project_data, subjects_data):
         # For MVP we assume new student or update? 
         # "upsert" is better for handling retries or existing pre-registered students
         
+        # Clean up string fields in student_data
+        for k, v in student_data.items():
+            if isinstance(v, str):
+                student_data[k] = v.strip()
+                
+        # Clean up string fields in project_data
+        for k, v in project_data.items():
+            if isinstance(v, str):
+                project_data[k] = v.strip()
+                
         # Prepare student record
         student_record = {
             "matricula": student_data["matricula"],

@@ -145,6 +145,9 @@ def render_asignaturas():
                 
                 submitted = st.form_submit_button("Guardar Asignatura")
                 if submitted:
+                    clave = clave.strip()
+                    nombre = nombre.strip()
+                    
                     if not clave or not nombre:
                         st.error("Clave y Nombre son obligatorios.")
                     elif not selected_career_id:
@@ -193,6 +196,9 @@ def render_asignaturas():
                 new_semestre = st.number_input("Semestre", min_value=1, max_value=12, value=subj.get("semestre", 1))
                 
                 if st.form_submit_button("Actualizar Asignatura"):
+                    new_clave = new_clave.strip()
+                    new_nombre = new_nombre.strip()
+                    
                     try:
                         supabase.table("asignaturas").update({
                             "clave_asignatura": new_clave,

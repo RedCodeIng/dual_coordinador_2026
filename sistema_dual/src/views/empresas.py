@@ -175,6 +175,15 @@ def render_empresas():
                 submitted = st.form_submit_button("Guardar Empresa")
                 
                 if submitted:
+                    nombre = nombre.strip()
+                    razon = razon.strip()
+                    rfc = rfc.strip()
+                    direccion = direccion.strip()
+                    m_nombre = m_nombre.strip()
+                    m_cargo = m_cargo.strip()
+                    m_email = m_email.strip()
+                    m_tel = m_tel.strip()
+                    
                     if not nombre:
                          st.error("El Nombre Comercial es obligatorio.")
                     elif not m_nombre or not m_cargo or not m_email or not m_tel:
@@ -270,6 +279,11 @@ def render_empresas():
                          ed_resumen = st.text_area("Resumen", value=ue.get('resumen', ''))
                          
                      if st.form_submit_button("💾 Guardar Cambios Generales"):
+                         ed_nombre = ed_nombre.strip()
+                         ed_razon = ed_razon.strip()
+                         ed_rfc = ed_rfc.strip()
+                         ed_dir = ed_dir.strip()
+                         
                          updates = {
                              "nombre_comercial": ed_nombre,
                              "razon_social": ed_razon,
@@ -317,6 +331,11 @@ def render_empresas():
                                 em_tel = st.text_input("Tel", value=mm.get('telefono', ''))
                                 
                                 if st.form_submit_button("Actualizar"):
+                                    em_nom = em_nom.strip()
+                                    em_car = em_car.strip()
+                                    em_ema = em_ema.strip()
+                                    em_tel = em_tel.strip()
+                                    
                                     supabase.table("mentores_ue").update({
                                         "nombre_completo": em_nom,
                                         "cargo": em_car,
@@ -367,6 +386,11 @@ def render_empresas():
                         m_tel = st.text_input("Teléfono")
                     
                     if st.form_submit_button("Guardar Mentor"):
+                        m_nombre = m_nombre.strip()
+                        m_cargo = m_cargo.strip()
+                        m_email = m_email.strip()
+                        m_tel = m_tel.strip()
+                        
                         if not m_nombre:
                             st.error("Nombre requerido.")
                         else:

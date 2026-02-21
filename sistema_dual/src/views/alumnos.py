@@ -93,13 +93,13 @@ def render_alumnos():
                 
                 if st.form_submit_button("Guardar Cambios Personales"):
                     # Sanitize
-                    new_nombre = sanitize_input(new_nombre)
-                    new_ap_paterno = sanitize_input(new_ap_paterno)
-                    new_ap_materno = sanitize_input(new_ap_materno)
-                    new_nss = sanitize_input(new_nss)
-                    new_email_inst = sanitize_input(new_email_inst)
-                    new_email_pers = sanitize_input(new_email_pers)
-                    new_tel = sanitize_input(new_tel)
+                    new_nombre = sanitize_input(new_nombre).strip()
+                    new_ap_paterno = sanitize_input(new_ap_paterno).strip()
+                    new_ap_materno = sanitize_input(new_ap_materno).strip()
+                    new_nss = sanitize_input(new_nss).strip()
+                    new_email_inst = sanitize_input(new_email_inst).strip()
+                    new_email_pers = sanitize_input(new_email_pers).strip()
+                    new_tel = sanitize_input(new_tel).strip()
                     
                     try:
                         supabase.table("alumnos").update({
@@ -177,9 +177,9 @@ def render_alumnos():
 
                     if st.form_submit_button("Actualizar Datos del Proyecto"):
                         # Sanitize
-                        new_proj_name = sanitize_input(new_proj_name)
-                        new_desc = sanitize_input(new_desc)
-                        new_marco_teorico = sanitize_input(new_marco_teorico)
+                        new_proj_name = sanitize_input(new_proj_name).strip()
+                        new_desc = sanitize_input(new_desc).strip()
+                        new_marco_teorico = sanitize_input(new_marco_teorico).strip()
                         
                         if not new_proj_name:
                              st.error("El nombre del proyecto es obligatorio.")
@@ -476,6 +476,7 @@ def render_alumnos():
                     submitted = st.form_submit_button("Agregar y Guardar Materia")
                     
                     if submitted:
+                         grupo = grupo.strip()
                          if not subject_id:
                              st.error("Por favor selecciona una materia válida.")
                          elif not grupo:

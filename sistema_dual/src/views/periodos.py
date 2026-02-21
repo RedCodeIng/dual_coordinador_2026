@@ -70,6 +70,7 @@ def render_periodos():
             
             submitted = st.form_submit_button("Crear Periodo")
             if submitted:
+                nombre_periodo = nombre_periodo.strip()
                 if not nombre_periodo:
                     st.error("El nombre es requerido.")
                 else:
