@@ -192,8 +192,6 @@ def generate_pdf_from_docx(template_name, context, output_path, template_path=No
                                             table_row.cells[idx].width = Inches(width)
                                     
                                     # Add data rows
-                                    mt_parts = []
-                                    desc_parts = []
                                     for comp in context.get("lista_competencias", []):
                                         # Main Row (No, Competencia, Asignaturas)
                                         row_comp = table.add_row()
@@ -204,38 +202,10 @@ def generate_pdf_from_docx(template_name, context, output_path, template_path=No
                                         make_data_run(row_comp.cells[2], comp.get("asignaturas_cubre", ""))
                                         row_comp.cells[2].paragraphs[0].alignment = docx.enum.text.WD_ALIGN_PARAGRAPH.CENTER
                                         
-                                        if comp.get("conocimientos_teoricos"):
-                                            mt_parts.append(f"{comp.get('competencia_desarrollada')}:\n{comp.get('conocimientos_teoricos')}")
-                                        if comp.get("descripcion_actividades"):
-                                            desc_parts.append(f"{comp.get('competencia_desarrollada')}:\n{comp.get('descripcion_actividades')}")
-                                            
                                     p1 = cell.add_paragraph("\xa0") # Forced space to prevent table fusion
                                     p1.paragraph_format.space_after = Pt(12)
                                     p1_run = p1.runs[0]
                                     p1_run.font.size = Pt(2)
-                                    
-                                    # Table 2: Marco Teorico
-                                    table_mt = cell.add_table(rows=2, cols=1)
-                                    table_mt.style = 'Table Grid'
-                                    mt_header = table_mt.rows[0].cells[0]
-                                    make_header_run(mt_header, "MARCO TEÓRICO O ANTECEDENTES")
-                                    mt_header.width = Inches(7.5)
-                                    make_data_run(table_mt.rows[1].cells[0], "\n\n".join(mt_parts) if mt_parts else "")
-                                    table_mt.rows[1].cells[0].width = Inches(7.5)
-                                    
-                                    p2 = cell.add_paragraph("\xa0") # Forced space to prevent table fusion
-                                    p2.paragraph_format.space_after = Pt(12)
-                                    p2_run = p2.runs[0]
-                                    p2_run.font.size = Pt(2)
-                                    
-                                    # Table 3: Descripcion
-                                    table_desc = cell.add_table(rows=2, cols=1)
-                                    table_desc.style = 'Table Grid'
-                                    desc_header = table_desc.rows[0].cells[0]
-                                    make_header_run(desc_header, "DESCRIPCIÓN DE LAS ACTIVIDADES REALIZADAS")
-                                    desc_header.width = Inches(7.5)
-                                    make_data_run(table_desc.rows[1].cells[0], "\n\n".join(desc_parts) if desc_parts else "")
-                                    table_desc.rows[1].cells[0].width = Inches(7.5)
 
                             if '[[TABLA_EVALUACION]]' in p.text:
                                 p.text = p.text.replace('[[TABLA_EVALUACION]]', '')
@@ -349,6 +319,19 @@ def generate_pdf_from_docx(template_name, context, output_path, template_path=No
 
         _process_images_in_context(context)
         
+        # Compile Marco Teorico and Descripcion Actividades for manual tables
+        if "Anexo_5.4" in template_name:
+            mt_parts = []
+            desc_parts = []
+            for comp in context.get("lista_competencias", []):
+                if comp.get("conocimientos_teoricos"):
+                    mt_parts.append(f"• {comp.get('competencia_desarrollada')}:\n{comp.get('conocimientos_teoricos')}")
+                if comp.get("descripcion_actividades"):
+                    desc_parts.append(f"• {comp.get('competencia_desarrollada')}:\n{comp.get('descripcion_actividades')}")
+            
+            context["marco_teorico"] = "\n\n".join(mt_parts) if mt_parts else ""
+            context["descripcion_actividades"] = "\n\n".join(desc_parts) if desc_parts else ""
+
         # docxtpl uses jinja2 under the hood, we just pass the context
         doc.init_docx()
         with open('final_jinja_src.txt', 'w', encoding='utf-8') as f:

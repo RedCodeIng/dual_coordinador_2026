@@ -1,7 +1,19 @@
-
 import sys
 import os
 import streamlit as st
+
+# MUST BE THE FIRST STREAMLIT COMMAND
+st.set_page_config(
+    page_title="Sistema de Gestión DUAL",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "Sistema de Gestión DUAL - EdoMex"
+    }
+)
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
