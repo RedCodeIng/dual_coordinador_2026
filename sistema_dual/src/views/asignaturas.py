@@ -142,8 +142,6 @@ def render_asignaturas():
                     
                 with c2:
                     semestre = st.number_input("Semestre (Ej. 7, 8)", min_value=1, max_value=12, value=7)
-                    presentacion = st.text_area("Presentación / Descripción")
-                    link_temario = st.text_input("Link al Temario")
                 
                 submitted = st.form_submit_button("Guardar Asignatura")
                 if submitted:
@@ -156,9 +154,7 @@ def render_asignaturas():
                             "clave_asignatura": clave,
                             "nombre": nombre,
                             "carrera_id": selected_career_id,
-                            "semestre": semestre,
-                            "presentacion": presentacion,
-                            "link_temario": link_temario
+                            "semestre": semestre
                         }
                         try:
                             res = supabase.table("asignaturas").insert(new_subj).execute()
@@ -195,17 +191,13 @@ def render_asignaturas():
                 new_clave = st.text_input("Clave", value=subj.get("clave_asignatura", ""))
                 new_nombre = st.text_input("Nombre", value=subj.get("nombre", ""))
                 new_semestre = st.number_input("Semestre", min_value=1, max_value=12, value=subj.get("semestre", 1))
-                new_presentacion = st.text_area("Presentación / Descripción", value=subj.get("presentacion", "") or "")
-                new_link = st.text_input("Link Temario", value=subj.get("link_temario", "") or "")
                 
                 if st.form_submit_button("Actualizar Asignatura"):
                     try:
                         supabase.table("asignaturas").update({
                             "clave_asignatura": new_clave,
                             "nombre": new_nombre,
-                            "semestre": new_semestre,
-                            "presentacion": new_presentacion,
-                            "link_temario": new_link
+                            "semestre": new_semestre
                         }).eq("id", subj_id).execute()
                         st.success("Asignatura actualizada.")
                         st.session_state["selected_subject_name"] = f"{new_clave} - {new_nombre}"
@@ -213,10 +205,7 @@ def render_asignaturas():
                     except Exception as e:
                         st.error(f"Error al actualizar: {e}")
 
-        if subj.get('presentacion'):
-             st.info(f"**Presentación:** {subj.get('presentacion')}")
-        if subj.get('link_temario'):
-            st.markdown(f"[Ver Temario]({subj.get('link_temario')})")
+ 
         
         tab_comp, tab_maestros, tab_alumnos = st.tabs(["Competencias", "Maestros Asignados", "Alumnos Inscritos"])
         
