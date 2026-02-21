@@ -40,7 +40,16 @@ def render_login():
             selected_career_name = None
 
             if carreras_options:
-                selected_career_name = st.selectbox("Seleccione su Carrera / División", list(carreras_options.keys()))
+                career_list = list(carreras_options.keys())
+                
+                # Establecer Ingeniería en Sistemas Computacionales como opción predeterminada
+                default_idx = 0
+                for i, c in enumerate(career_list):
+                    if "Sistemas Computacionales" in c or "SISTEMAS COMPUTACIONALES" in c.upper():
+                        default_idx = i
+                        break
+                        
+                selected_career_name = st.selectbox("Seleccione su Carrera / División", career_list, index=default_idx)
                 if selected_career_name: 
                     selected_career_id = carreras_options[selected_career_name]
             elif not fetch_error: # Only show this if no error but also no careers
