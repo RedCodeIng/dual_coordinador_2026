@@ -22,7 +22,7 @@ def render_login():
         fetch_error = f"Error conectando a la base de datos: {e}"
 
     # --- UI Rendering ---
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
         st.markdown(get_login_header(), unsafe_allow_html=True)
