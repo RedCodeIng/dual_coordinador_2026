@@ -128,9 +128,10 @@ def render_empresas():
                                         ctx = {
                                             "mentor_nombre": m['nombre_completo'],
                                             "mentor_email": m['email'],
-                                            "mentor_password": raw_pw
+                                            "mentor_password": raw_pw,
+                                            "frase_inspiradora": "El aprendizaje en la práctica es el puente que transforma el talento estudiantil en excelencia profesional."
                                         }
-                                        send_email(m['email'], "Credenciales de Acceso Mentor UE - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                                        send_email(m['email'], "Credenciales de Acceso Mentor UE - Sistema DUAL", "nuevo_mentor.html", ctx)
                                         sent_count += 1
                                         
                                 st.success(f"Se generaron y enviaron credenciales a {sent_count} Mentores UE.")
@@ -221,23 +222,8 @@ def render_empresas():
                                 }
                                 supabase.table("mentores_ue").insert(new_mentor).execute()
                                 
-                                # 3. Send Email with Credentials
-                                context_email = {
-                                    "mentor_nombre": m_nombre,
-                                    "empresa_nombre": nombre,
-                                    "mentor_email": m_email,
-                                    "mentor_password": raw_password
-                                }
-                                
-                                # Email the Mentor directly
-                                send_email(m_email, "Credenciales de Acceso - Sistema DUAL", "nuevo_mentor.html", context_email)
-                                
-                                st.info(f"Contraseña temporal generada: **{raw_password}** (Guarda esta contraseña, ya fue enviada por correo pero puedes proporcionarla directamente al mentor).")
-                                
-                                # Coordinador Copy (BCC Simulator)
-                                send_email("jairyanez44@gmail.com", f"Copia CCO (Sistema DUAL) - Credenciales {nombre}", "base_notification.html", context)
-                                
-                                st.success(f"Empresa '{nombre}' y Mentor '{m_nombre}' registrados exitosamente. Se ha enviado un correo con la contraseña.")
+                                st.info(f"🔑 Contraseña de acceso inicial generada: **{raw_password}** (Las credenciales no se envían automáticamente. Use la acción masiva en el listado para enviar el acceso por primera vez).")
+                                st.success(f"Empresa '{nombre}' y Mentor '{m_nombre}' registrados exitosamente.")
                                 
                                 st.rerun()
                             
@@ -357,7 +343,8 @@ def render_empresas():
                                 ctx = {
                                     "mentor_nombre": mm['nombre_completo'],
                                     "mentor_email": mm.get('email', ''),
-                                    "mentor_password": raw_pw
+                                    "mentor_password": raw_pw,
+                                    "frase_inspiradora": "El aprendizaje en la práctica es el puente que transforma el talento estudiantil en excelencia profesional."
                                 }
                                 from src.utils.notifications import send_email
                                 send_email(mm.get('email', ''), "Recuperación de Acceso - Sistema DUAL", "recuperacion_mentor.html", ctx)

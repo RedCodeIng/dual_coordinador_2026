@@ -3,11 +3,16 @@ import os
 from src.db_connection import get_supabase_client
 from src.utils.notifications import send_email
 from src.utils.calendar_generator import create_event_ics
-from src.utils.anexo_data import get_anexo_5_1_data
+from src.utils.anexo_data import get_anexo_5_1_data, get_anexo_5_4_data
 from src.utils.pdf_generator_docx import generate_pdf_from_docx
 import random
 import string
 import hashlib
+import tempfile
+import zipfile
+import shutil
+import base64
+import time
 
 def render_fases_control():
     st.header("🚀 Centro de Control: Las 5 Fases DUAL")
@@ -144,10 +149,8 @@ def render_fases_control():
                         # 3. Send Email
                         ctx = {
                             "nombre_alumno": student_name,
-                            "empresa_sede": proj.get('unidades_economicas', {}).get('nombre_comercial', 'Pendiente'),
                             "mentor_ie_nombre": mentor_ie_name,
-                            "mentor_ie_email": proj.get('maestros', {}).get('email_institucional', 'N/A'),
-                            "mentor_ue_nombre": proj.get('mentores_ue', {}).get('nombre_completo', 'Pendiente')
+                            "mentor_ie_email": proj.get('maestros', {}).get('email_institucional', 'N/A')
                         }
                         
                         success_em, msg_em = send_email(target_email, "Sistema DUAL - Asignación Mentor IE Oficial", "asignacion_mentor_ie.html", ctx, attachments)
@@ -237,6 +240,155 @@ def render_fases_control():
                             st.error(f"Error al enviar: {msg_m}")
         else:
             st.warning("No hay Mentores UE asignados a proyectos activos.")
+            
+        st.divider()
+        st.markdown("#### 📨 Bandeja de Entrada: Evaluaciones UE Recientes")
+        st.info("Alumnos que ya fueron calificados por la empresa pero su Anexo 5.4 aún no ha sido sincronizado ni enviado.")
+        
+        # Query students with calificacion_ue NOT NULL and anexo_54_enviado FALSE
+        res_inbox = supabase.table("proyectos_dual").select(
+             "id, alumno_id, calificacion_ue, alumnos(matricula, nombre, ap_paterno, ap_materno, email_institucional, email_personal)"
+        ).not_.is_("calificacion_ue", "null").is_("anexo_54_enviado", False).execute()
+        
+        if res_inbox.data:
+             inbox_cols = st.columns([3, 2, 2])
+             inbox_cols[0].markdown("**Alumno**")
+             inbox_cols[1].markdown("**Calificación UE**")
+             inbox_cols[2].markdown("**Acción**")
+             
+             for p in res_inbox.data:
+                  st_info = p.get('alumnos', {})
+                  matr = st_info.get('matricula', 'S/N')
+                  name = f"{st_info.get('nombre', '')} {st_info.get('ap_paterno', '')}".strip()
+                  
+                  c1, c2, c3 = st.columns([3, 2, 2])
+                  c1.write(f"🧑‍🎓 {name} ({matr})")
+                  c2.write(f"⭐ {p.get('calificacion_ue')}/10.0")
+                  
+                  if c3.button("Sincronizar y Enviar", key=f"btn_sync_{p['id']}"):
+                       with st.spinner("Generando PDF y enviando..."):
+                            import tempfile, shutil, time
+                            from src.utils.anexo_data import get_anexo_5_4_data
+                            
+                            student_id = p['alumno_id']
+                            data, msg = get_anexo_5_4_data(student_id)
+                            
+                            if data:
+                                 tmp_dir = os.path.join(tempfile.gettempdir(), f"dual_sync_{student_id}_{int(time.time())}")
+                                 os.makedirs(tmp_dir, exist_ok=True)
+                                 
+                                 pdf_path = os.path.join(tmp_dir, f"Anexo_5.4_{matr}.pdf")
+                                 t_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "docs", "Anexo_5.4_Reporte_de_Actividades.docx")
+                                 suc, _ = generate_pdf_from_docx("Anexo_5.4_Reporte_de_Actividades.docx", data, pdf_path, t_path, to_pdf=True)
+                                 
+                                 if suc and os.path.exists(pdf_path):
+                                      # Fetch Mentor UE email
+                                      res_proj_info = supabase.table("proyectos_dual").select("mentores_ue(nombre_completo, email)").eq("id", p['id']).single().execute()
+                                      m_email = res_proj_info.data.get('mentores_ue', {}).get('email') if res_proj_info.data and res_proj_info.data.get('mentores_ue') else None
+                                      m_name = res_proj_info.data.get('mentores_ue', {}).get('nombre_completo', 'Mentor') if res_proj_info.data and res_proj_info.data.get('mentores_ue') else 'Mentor'
+                                      s_email = st_info.get('email_institucional') or st_info.get('email_personal')
+                                      
+                                      ctx_mentor = {
+                                           "title": f"Anexo 5.4 Finalizado - {name}",
+                                           "message": f"""
+                                           <p>Estimado/a <strong>{m_name}</strong>,</p>
+                                           <p>La Coordinación ha sincronizado exitosamente la evaluación que registró en el portal para el estudiante <b>{name}</b>.</p>
+                                           <p>Se adjunta para su archivo el <strong>Anexo 5.4 (Reporte de Actividades DUAL)</strong> oficial con sus firmas y evaluación incrustadas.</p>
+                                           <p>¡Gracias por su tiempo y compromiso!</p>
+                                           """
+                                      }
+                                      
+                                      success_flags = []
+                                      if m_email:
+                                           # Send to mentor
+                                           msuc, _ = send_email(m_email, f"Sistema DUAL - Anexo 5.4 Final", "base_notification.html", ctx_mentor, [pdf_path])
+                                           success_flags.append(msuc)
+                                      
+                                      if s_email:
+                                           # Send to student
+                                           ctx_student = {
+                                                "title": f"¡Evaluación Empresarial Lista!",
+                                                "message": f"""
+                                                <p>Hola <strong>{name}</strong>,</p>
+                                                <p>Tu coordinador ha procesado la calificación otorgada por tu Mentor en la Unidad Económica.</p>
+                                                <p>Adjuntamos el <strong>Anexo 5.4 (Reporte de Actividades DUAL)</strong> como respaldo de tu excelente desempeño empresarial correspondiente al 70% de tu calificación DUAL.</p>
+                                                """
+                                           }
+                                           ssuc, _ = send_email(s_email, f"Sistema DUAL - Evaluación Empresarial (Anexo 5.4)", "base_notification.html", ctx_student, [pdf_path])
+                                           success_flags.append(ssuc)
+                                           
+                                      if any(success_flags):
+                                           # Mark as sent in DB
+                                           supabase.table("proyectos_dual").update({"anexo_54_enviado": True}).eq("id", p['id']).execute()
+                                           st.success("Sincronizado y Enviado.")
+                                           st.rerun()
+                                      else:
+                                           st.error("No se pudo enviar el correo.")
+                                           
+                                 else:
+                                      st.error("Error generando PDF.")
+                                      
+                                 shutil.rmtree(tmp_dir, ignore_errors=True)
+                            else:
+                                 st.error(f"Faltan datos: {msg}")
+
+             st.markdown("---")
+             st.markdown("###### Acciones de Bandeja")
+             if st.button("🚀 Sincronizar y Enviar Todos", type="primary", use_container_width=True):
+                  with st.spinner("Procesando bandeja de entrada masiva..."):
+                       import tempfile, shutil, time
+                       from src.utils.anexo_data import get_anexo_5_4_data
+                       
+                       tmp_dir = os.path.join(tempfile.gettempdir(), f"dual_batch_{int(time.time())}")
+                       os.makedirs(tmp_dir, exist_ok=True)
+                       
+                       success_count = 0
+                       for p in res_inbox.data:
+                            student_id = p['alumno_id']
+                            st_info = p.get('alumnos', {})
+                            matr = st_info.get('matricula', 'S/N')
+                            name = f"{st_info.get('nombre', '')} {st_info.get('ap_paterno', '')}".strip()
+                            
+                            data, _ = get_anexo_5_4_data(student_id)
+                            if data:
+                                 pdf_path = os.path.join(tmp_dir, f"Anexo_5.4_{matr}.pdf")
+                                 t_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "docs", "Anexo_5.4_Reporte_de_Actividades.docx")
+                                 suc, _ = generate_pdf_from_docx("Anexo_5.4_Reporte_de_Actividades.docx", data, pdf_path, t_path, to_pdf=True)
+                                 
+                                 if suc and os.path.exists(pdf_path):
+                                      res_proj_info = supabase.table("proyectos_dual").select("mentores_ue(nombre_completo, email)").eq("id", p['id']).single().execute()
+                                      m_email = res_proj_info.data.get('mentores_ue', {}).get('email') if res_proj_info.data and res_proj_info.data.get('mentores_ue') else None
+                                      m_name = res_proj_info.data.get('mentores_ue', {}).get('nombre_completo', 'Mentor') if res_proj_info.data and res_proj_info.data.get('mentores_ue') else 'Mentor'
+                                      s_email = st_info.get('email_institucional') or st_info.get('email_personal')
+                                      
+                                      ctx_mentor = {
+                                           "title": f"Anexo 5.4 Finalizado - {name}",
+                                           "message": f"<p>Estimado/a <strong>{m_name}</strong>,</p><p>La Coordinación ha sincronizado exitosamente la evaluación que registró en el portal para el estudiante <b>{name}</b>.</p><p>Se adjunta para su archivo el <strong>Anexo 5.4</strong>.</p>"
+                                      }
+                                      ctx_student = {
+                                           "title": f"¡Evaluación Empresarial Lista!",
+                                           "message": f"<p>Hola <strong>{name}</strong>,</p><p>Tu coordinador ha procesado la calificación otorgada por tu Mentor en la Unidad Económica.</p><p>Adjuntamos tu <strong>Anexo 5.4</strong>.</p>"
+                                      }
+                                      
+                                      sent_any = False
+                                      if m_email:
+                                           sent, _ = send_email(m_email, f"Sistema DUAL - Anexo 5.4 Final", "base_notification.html", ctx_mentor, [pdf_path])
+                                           if sent: sent_any = True
+                                      if s_email:
+                                           sent, _ = send_email(s_email, f"Sistema DUAL - Evaluación UE", "base_notification.html", ctx_student, [pdf_path])
+                                           if sent: sent_any = True
+                                           
+                                      if sent_any:
+                                           supabase.table("proyectos_dual").update({"anexo_54_enviado": True}).eq("id", p['id']).execute()
+                                           success_count += 1
+                                           
+                       shutil.rmtree(tmp_dir, ignore_errors=True)
+                       st.success(f"Se sincronizaron y enviaron {success_count} expedientes.")
+                       st.rerun()
+                       
+        else:
+             st.success("🎉 ¡Bandeja limpia! No hay evaluaciones pendientes de sincronización.")
+
         
     with f4:
         st.subheader("Fase 4: Evaluación Institucional IE (30%)")
@@ -336,7 +488,7 @@ def render_fases_control():
                 status_color = "🟢" if final_grade >= 7.0 and c_ue is not None and c_ie is not None else "🔴"
                 if c_ue is None or c_ie is None: status_color = "🟡" # Pendiente
                 
-                c5_1, c5_2, c5_3, c5_4, c5_5 = st.columns([3, 2, 2, 2, 2])
+                c5_1, c5_2, c5_3, c5_4, c5_5, c5_6 = st.columns([2.5, 1.5, 1.5, 1.5, 1.5, 1.5])
                 c5_1.write(f"{status_color} **{s_name}** ({matr})")
                 
                 # Let coordinator manually adjust if needed via a quick popover
@@ -355,7 +507,7 @@ def render_fases_control():
                 c5_4.markdown(f"**Total: {final_grade:.2f}**")
                 
                 # To do: Generate real Anexo 5.5
-                c5_5.button("Emitir Anexo 5.5", key=f"f5_btn_{proj['id']}", disabled=(c_ue is None or c_ie is None))
+                c5_5.button("Emitir 5.5", key=f"f5_btn_{proj['id']}", disabled=(c_ue is None or c_ie is None))
             
             st.divider()
             st.markdown("##### Acciones Globales")
@@ -382,7 +534,7 @@ def render_fases_control():
                             # For the scope of this implementation, we simulate the file creation representing the success of the epic.
                             mock_pdf_path = os.path.join(out_dir_lote, f"Carta_Terminacion_{matr}.pdf")
                             with open(mock_pdf_path, 'w') as f:
-                                f.write(f"CARTA DE TERMINACION DUAL\nAlumno: {s_name}\nMatricula: {matr}")
+                                f.write(f"CARTA DE TERMINACION DUAL\\nAlumno: {s_name}\\nMatricula: {matr}")
                             docs_generated += 1
                             
                         st.success(f"Se generaron {docs_generated} Cartas de Terminación exitosamente en: `{out_dir_lote}`")

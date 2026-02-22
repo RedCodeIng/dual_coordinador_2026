@@ -56,6 +56,7 @@ def main():
                      res_car = supabase.table("carreras").select("nombre").eq("id", user["carrera_id"]).single().execute()
                      if res_car.data:
                          st.session_state["selected_career_name"] = res_car.data["nombre"]
+                         st.session_state["selected_career_id"] = user["carrera_id"]
                  st.toast("Sesión restaurada exitosamente.", icon="🔄")
         except Exception as e:
             pass # Fail silently

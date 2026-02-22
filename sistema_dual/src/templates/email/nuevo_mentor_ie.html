@@ -4,7 +4,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asignación de Mentor Académico (Institucional) y Plan de Trabajo</title>
+    <title>Nuevas Credenciales - Mentor IE</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -88,6 +88,26 @@
             border: 1px solid #eaddc4;
         }
 
+        .cta-buttons {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #8d2840;
+            color: #ffffff !important;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 5px;
+            border: 2px solid #8d2840;
+            transition: all 0.3s;
+        }
+
         .footer {
             background-color: #8d2840;
             color: #ffffff;
@@ -116,16 +136,12 @@
             font-weight: bold;
             letter-spacing: 1px;
         }
-
-        ul.attachments-list {
-            padding-left: 20px;
-            color: #8d2840;
-        }
     </style>
 </head>
 
 <body>
     <div class="email-container">
+        <!-- Encabezado Membretado Oficial -->
         <div class="header">
             <table width="100%" role="presentation" border="0" cellspacing="0" cellpadding="0">
                 <tr>
@@ -144,43 +160,46 @@
         </div>
 
         <div class="content">
-            <h1>Asignación Oficial de Mentor IE y Plan de Trabajo</h1>
+            <h1>Bienvenido al Sistema DUAL Institucional</h1>
 
-            <p>Estimado/a <strong>{{nombre_alumno}}</strong>,</p>
+            <p>Estimado/a Docente <strong>{{mentor_nombre}}</strong>,</p>
 
-            <p>Nos es grato informarte que se te ha asignado formalmente a tu Mentor(a) Académico(a) Institucional
-                (Mentor IE) para supervisar tu estancia y desarrollo de proyecto en la modalidad DUAL durante el
-                semestre actual.</p>
+            <p>Le notificamos que ha sido registrado exitosamente en
+                nuestro padrón de Mentores Institucionales del Sistema de Gestión DUAL. Como Mentor IE (Académico),
+                usted jugará un rol
+                fundamental en la supervisión institucional y el aseguramiento del aprendizaje de nuestros estudiantes.
+            </p>
 
             <div class="info-details">
-                <p><strong>Mentor(a) Institucional:</strong> {{mentor_ie_nombre}}</p>
-                <p><strong>Correo del Docente:</strong> {{mentor_ie_email}}</p>
+                <p><strong>Usuario (Correo Institucional):</strong> {{mentor_email}}</p>
+                <p><strong>Contraseña de Acceso:</strong> {{mentor_password}}</p>
             </div>
 
             <div class="alert-box">
-                <p style="margin: 0;"><strong>📎 Documentación Adjunta de Trabajo:</strong></p>
-                <p>A este correo electrónico se encuentran anexos los siguientes documentos indispensables para tu
-                    control académico:</p>
-                <ul class="attachments-list">
-                    <li><strong>Carta de Aceptación/Asignación</strong> del Mentor IE.</li>
-                    <li><strong>Anexo 5.1 Firmado o pre-llenado (Plan de Formación DUAL).</strong></li>
-                    <li><strong>Desglose de Actividades</strong> en PDF por cada materia cursada.</li>
-                </ul>
-                <p>Por favor revisa estos documentos y mantente en comunicación constante con ambos mentores.</p>
+                <p style="margin: 0;"><strong>⚠️ Aviso de Privacidad:</strong> Le recomendamos acceder al portal
+                    y revisar la información de sus expedientes asignados. Trate sus contraseñas con extrema
+                    confidencialidad.</p>
             </div>
 
+            <!-- Bloque de Frase Inspiradora -->
             <div class="inspirational-quote">
-                "Un buen comienzo marca el ritmo del éxito. ¡La disciplina en tus reportes forjará el profesional que el
-                mundo digital requiere!"
+                "{{frase_inspiradora}}"
+            </div>
+
+            <div class="cta-buttons">
+                <!-- URL placeholder, adjust if you have a specific portal URL -->
+                <a href="#" class="button">Acceder al Portal DUAL</a>
             </div>
         </div>
 
+        <!-- Pie de Página Fijo -->
         <div class="footer">
             <p>&copy; 2026 Tecnológico de Estudios Superiores de Ecatepec.</p>
             <p><strong>COORDINACIÓN DE EDUCACIÓN DUAL</strong></p>
             <p>Si tiene alguna pregunta, puede comunicarse a la coordinación de su carrera.</p>
         </div>
 
+        <!-- Firma Techcoatl -->
         <div class="techcoatl-signature">
             SISTEMA DE GESTION EDUCACION DUAL CREADO POR TECHCOATL
         </div>

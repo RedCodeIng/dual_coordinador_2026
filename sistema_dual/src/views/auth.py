@@ -72,18 +72,23 @@ def render_login():
                             response = supabase.table("usuarios_coordinadores").select("*").eq("no_empleado", identifier).execute()
                             if response.data:
                                 user = response.data[0]
-                                st.session_state["user"] = user
-                                st.session_state["role"] = "coordinator"
-                                st.session_state["selected_career_name"] = selected_career_name
-                                st.session_state["selected_career_id"] = selected_career_id
-                                st.session_state["selected_career_id"] = selected_career_id
-                                st.success(f"Bienvenido Coordinador - {selected_career_name}")
+                                coordinator_career_id = user.get("carrera_id")
                                 
-                                # Set Session Token for Persistence
-                                st.query_params["session_token"] = identifier
-                                
-                                time.sleep(1)
-                                st.rerun()
+                                # Validate career restriction
+                                if coordinator_career_id and coordinator_career_id != selected_career_id:
+                                    st.error("Acceso denegado: No tienes permiso para gestionar esta carrera. Selecciona la tuya en el menú.")
+                                else:
+                                    st.session_state["user"] = user
+                                    st.session_state["role"] = "coordinator"
+                                    st.session_state["selected_career_name"] = selected_career_name
+                                    st.session_state["selected_career_id"] = selected_career_id
+                                    st.success(f"Bienvenido Coordinador - {selected_career_name}")
+                                    
+                                    # Set Session Token for Persistence
+                                    st.query_params["session_token"] = identifier
+                                    
+                                    time.sleep(1)
+                                    st.rerun()
                             else:
                                 st.error("Usuario no encontrado en Coordinadores.")
                          except Exception as e:

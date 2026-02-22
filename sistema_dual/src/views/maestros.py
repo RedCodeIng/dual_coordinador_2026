@@ -102,10 +102,22 @@ def render_maestros():
                             hash_pw = hashlib.sha256(raw_pw.encode('utf-8')).hexdigest()
                             supabase.table("maestros").update({"password_hash": hash_pw}).eq("id", m['id']).execute()
                             
+                            career_str = str(st.session_state.get("selected_career_name", "")).lower()
+                            frase_ie = "El aprendizaje en la práctica es el puente que transforma el talento en excelencia."
+                            if "sistemas" in career_str or "computacionales" in career_str:
+                                frase_ie = "La tecnología y la programación son el motor de la innovación en el modelo DUAL."
+                            elif "industrial" in career_str:
+                                frase_ie = "Optimizando procesos y creando eficiencia desde el aula hasta la industria."
+                            elif "mecánica" in career_str or "mecanica" in career_str:
+                                frase_ie = "Forjando el futuro con precisión y diseño en cada proyecto DUAL."
+                            elif "administración" in career_str or "administracion" in career_str:
+                                frase_ie = "Gestionando el talento y el liderazgo corporativo con visión DUAL."
+                                
                             ctx = {
                                 "mentor_nombre": m['nombre_completo'],
                                 "mentor_email": m.get('email_institucional', ''),
-                                "mentor_password": raw_pw
+                                "mentor_password": raw_pw,
+                                "frase_inspiradora": frase_ie
                             }
                             from src.utils.notifications import send_email
                             send_email(m.get('email_institucional', ''), "Credenciales de Acceso Mentor IE - Sistema DUAL", "recuperacion_mentor.html", ctx)
@@ -153,12 +165,24 @@ def render_maestros():
                                 hash_pw = hashlib.sha256(raw_pw.encode('utf-8')).hexdigest()
                                 supabase.table("maestros").update({"password_hash": hash_pw}).eq("id", t_id).execute()
                                 
+                                career_str = str(st.session_state.get("selected_career_name", "")).lower()
+                                frase_ie = "El aprendizaje en la práctica es el puente que transforma el talento en excelencia."
+                                if "sistemas" in career_str or "computacionales" in career_str:
+                                    frase_ie = "La tecnología y la programación son el motor de la innovación en el modelo DUAL."
+                                elif "industrial" in career_str:
+                                    frase_ie = "Optimizando procesos y creando eficiencia desde el aula hasta la industria."
+                                elif "mecánica" in career_str or "mecanica" in career_str:
+                                    frase_ie = "Forjando el futuro con precisión y diseño en cada proyecto DUAL."
+                                elif "administración" in career_str or "administracion" in career_str:
+                                    frase_ie = "Gestionando el talento y el liderazgo corporativo con visión DUAL."
+                                
                                 ctx = {
                                     "mentor_nombre": t_info['nombre_completo'],
                                     "mentor_email": t_info['email_institucional'],
-                                    "mentor_password": raw_pw
+                                    "mentor_password": raw_pw,
+                                    "frase_inspiradora": frase_ie
                                 }
-                                send_email(t_info['email_institucional'], "Credenciales de Acceso Mentor IE - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                                send_email(t_info['email_institucional'], "Credenciales de Acceso Mentor IE - Sistema DUAL", "nuevo_mentor_ie.html", ctx)
                                 sent_count += 1
                                 
                         st.success(f"Se generaron y enviaron credenciales a {sent_count} Mentores IE.")
