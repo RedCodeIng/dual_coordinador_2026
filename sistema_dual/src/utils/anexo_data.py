@@ -149,40 +149,76 @@ def get_anexo_5_4_data(student_id):
     consecutivo = 1
     for insc in inscripciones:
         asig = insc["asignaturas"]
-        # Obtener Competencias
+        insc_descripcion = insc.get("descripcion_actividades", "Actividades generales de la materia en el proyecto DUAL")
+        if not insc_descripcion:
+            insc_descripcion = "Actividades generales de la materia en el proyecto DUAL"
+            
+        # Obtener Competencias (Intentar mapa curricular)
         res_comp = supabase.table("asignatura_competencias").select("*").eq("asignatura_id", asig["id"]).order("numero_competencia").execute()
-        for comp in res_comp.data:
-            # Obtener Actividades para marco/descripcion
-            res_act = supabase.table("actividades_aprendizaje").select("*").eq("competencia_id", comp["id"]).execute()
-            
-            conocimientos = "\\n".join([f"- {a['descripcion_actividad']}" for a in res_act.data])
-            desc_acts = "\\n".join([f"- Evidencia: {a['evidencia']} ({a['horas_dedicacion']}h)" for a in res_act.data])
-            
+        
+        if res_comp.data:
+            for comp in res_comp.data:
+                # Obtener Actividades para marco/descripcion
+                res_act = supabase.table("actividades_aprendizaje").select("*").eq("competencia_id", comp["id"]).execute()
+                
+                conocimientos = "\\n".join([f"- {a['descripcion_actividad']}" for a in res_act.data]) if res_act.data else f"- {insc_descripcion}"
+                desc_acts = "\\n".join([f"- Evidencia: {a['evidencia']} ({a['horas_dedicacion']}h)" for a in res_act.data]) if res_act.data else "- Evidencia: Reporte"
+                
+                lista_competencias.append({
+                    "numero_consecutivo": consecutivo,
+                    "competencia_desarrollada": comp["descripcion_competencia"],
+                    "asignaturas_cubre": asig["nombre"],
+                    "conocimientos_teoricos": conocimientos,
+                    "descripcion_actividades": desc_acts
+                })
+                
+                # Formatear actividades para la tabla de evaluación
+                acts = []
+                if res_act.data:
+                    for a in res_act.data:
+                         acts.append({
+                             "descripcion_actividad": a["descripcion_actividad"],
+                             "evidencia": a["evidencia"],
+                             "horas": a["horas_dedicacion"],
+                             "p0": "", "p70": "", "p80": "", "p90": "X", "p100": "", # Mocking evaluation marks
+                             "rec_ie": "", "rec_ue": ""
+                         })
+                else:
+                    acts.append({
+                         "descripcion_actividad": insc_descripcion,
+                         "evidencia": "Desempeño general",
+                         "horas": 40,
+                         "p0": "", "p70": "", "p80": "", "p90": "X", "p100": "",
+                         "rec_ie": "", "rec_ue": ""
+                    })
+                     
+                lista_actividades.append({
+                    "competencia_alcanzada": comp["descripcion_competencia"],
+                    "firma_y_fecha": f"{mentor_ue.get('nombre_completo', 'Mentor UE')}\\n{datetime.today().strftime('%d/%m/%Y')}",
+                    "actividades": acts
+                })
+                consecutivo += 1
+        else:
+            # Fallback if the subject has no curricular map defined yet
             lista_competencias.append({
                 "numero_consecutivo": consecutivo,
-                "competencia_desarrollada": comp["descripcion_competencia"],
+                "competencia_desarrollada": f"Aplicación práctica de {asig['nombre']}",
                 "asignaturas_cubre": asig["nombre"],
-                "conocimientos_teoricos": conocimientos if conocimientos else "Pendiente de registro",
-                "descripcion_actividades": desc_acts if desc_acts else "Pendiente de registro"
+                "conocimientos_teoricos": f"- {insc_descripcion}",
+                "descripcion_actividades": "- Evidencia: Reporte Final DUAL"
             })
             
-            # Formatear actividades para la tabla de evaluación
-            acts = []
-            for a in res_act.data:
-                 acts.append({
-                     "descripcion_actividad": a["descripcion_actividad"],
-                     "evidencia": a["evidencia"],
-                     "horas": a["horas_dedicacion"],
-                     "p0": "", "p70": "", "p80": "", "p90": "X", "p100": "", # Mocking evaluation marks for now
-                     "rec_ie": "", "rec_ue": ""
-                 })
-                 
             lista_actividades.append({
-                "competencia_alcanzada": comp["descripcion_competencia"],
+                "competencia_alcanzada": f"Aplicación práctica de {asig['nombre']}",
                 "firma_y_fecha": f"{mentor_ue.get('nombre_completo', 'Mentor UE')}\\n{datetime.today().strftime('%d/%m/%Y')}",
-                "actividades": acts
+                "actividades": [{
+                    "descripcion_actividad": insc_descripcion,
+                    "evidencia": "Desempeño general reportado",
+                    "horas": 40,
+                    "p0": "", "p70": "", "p80": "", "p90": "X", "p100": "",
+                    "rec_ie": "", "rec_ue": ""
+                }]
             })
-            
             consecutivo += 1
             
     # Periodo text
