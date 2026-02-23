@@ -266,6 +266,7 @@ def render_periodos():
                             else:
                                 st.info("No se encontraron alumnos en este periodo.")
                             
+                            import time; time.sleep(1)
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error durante la purga: {e}")

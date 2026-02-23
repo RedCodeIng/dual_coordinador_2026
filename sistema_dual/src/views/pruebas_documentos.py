@@ -210,21 +210,37 @@ def render_pruebas_documentos():
         3. Cierra sesión y **Entra como uno de los alumnos** (Matrícula: `MOCK-ALU-1` : `MOCK-ALU-1`). Llena sus datos y ve a sus documentos.
         4. Inicia sesión como el **Mentor UE** o **Mentor IE** (con la contraseña que te llegó) y evalúa al alumno para recibir los PDF finales.
         """)
-        
         def purge_mock_universe(supa):
-            # Because of CASCADE, deleting masters/UE deletes projects/enrolls.
-            supa.table("alumnos").delete().like("matricula", "MOCK-%").execute()
+            # 1. Fetch mock student IDs to clean dependencies correctly
+            res_alumnos = supa.table("alumnos").select("id").like("matricula", "MOCK-%").execute()
+            if res_alumnos.data:
+                alumnos_ids = [a["id"] for a in res_alumnos.data]
+                # Delete enrollments linked to them which reference maestros/asignaturas
+                supa.table("inscripciones_asignaturas").delete().in_("alumno_id", alumnos_ids).execute()
+                # Delete projects linked to them
+                supa.table("proyectos_dual").delete().in_("alumno_id", alumnos_ids).execute()
+                # Delete students
+                supa.table("alumnos").delete().in_("id", alumnos_ids).execute()
+
+            # 2. Delete Mentors, Companies, Teachers
             supa.table("mentores_ue").delete().like("nombre_completo", "MOCK %").execute()
             supa.table("unidades_economicas").delete().like("rfc", "MOCK-%").execute()
             supa.table("maestros").delete().like("clave_maestro", "MOCK-%").execute()
             
-            # Limpiar competencias MOCK manual (si las asigs se borran, por llave foránea también se borran, pero mejor prevenir)
+            # 3. Limpiar competencias MOCK
             res_asig_mock = supa.table("asignaturas").select("id").like("clave_asignatura", "MOCK-%").execute()
             if res_asig_mock.data:
                 asig_ids_mock = [a['id'] for a in res_asig_mock.data]
+                # Delete activities first
+                res_comp_mock = supa.table("asignatura_competencias").select("id").in_("asignatura_id", asig_ids_mock).execute()
+                if res_comp_mock.data:
+                    comp_ids = [c['id'] for c in res_comp_mock.data]
+                    supa.table("actividades_aprendizaje").delete().in_("competencia_id", comp_ids).execute()
+                
+                # Delete competencies
                 supa.table("asignatura_competencias").delete().in_("asignatura_id", asig_ids_mock).execute()
 
-            # Subjects are deleted explicitly last.
+            # 4. Subjects are deleted explicitly last.
             supa.table("asignaturas").delete().like("clave_asignatura", "MOCK-%").execute()
 
         col_mock1, col_mock2 = st.columns(2)
