@@ -17,12 +17,22 @@ def render_registro():
     # In a real app we might fetch the status from DB if session is stale
     # But let's assume session 'user' has recent data or we fetch it:
     if matricula:
-        res = supabase.table("alumnos").select("estatus").eq("matricula", matricula).execute()
+        res = supabase.table("alumnos").select("*").eq("matricula", matricula).execute()
         if res.data:
-            estatus = res.data[0]["estatus"]
-            if estatus in ["Registrado", "Activo", "Baja"]:
+            student_data = res.data[0]
+            estatus = student_data.get("estatus")
+            
+            if estatus == "En Espera de Reinscripción":
+                if st.session_state.get("registro_step", 1) == 1:
+                    st.info("¡Bienvenido nuevamente! Por favor, verifica y actualiza los datos de tu proyecto y carga académica para el nuevo periodo.")
+                    # Pre-fill user session with existing data
+                    request_user.update(student_data)
+                    st.session_state["user"] = request_user
+                    st.session_state["registro_step"] = 2
+                    st.rerun()
+            elif estatus in ["Registrado", "Activo", "Baja", "Egresado", "En Espera de Egreso", "Terminado"]:
                 st.warning(f"Tu estatus actual es: {estatus}")
-                st.info("Ya te encuentras registrado en el sistema. No es necesario volver a llenar el formulario.")
+                st.info("Ya te encuentras registrado en el sistema o tu proceso ha concluido. No es necesario volver a llenar el formulario.")
                 return 
 
     # Wizard Progress
@@ -223,18 +233,29 @@ def render_registro():
                     if not academic_load_html:
                         academic_load_html = "<tr><td colspan='4'>No se registraron materias.</td></tr>"
                         
+                    frase_dinamica = "El aprendizaje en la práctica es el puente que transforma el talento estudiantil en excelencia profesional."
+                    carrera_str = user.get('carrera', '')
+                    if carrera_str == "Ingeniería en Sistemas Computacionales":
+                        frase_dinamica = "La tecnología y la programación son el motor de la innovación en el modelo DUAL."
+                    elif carrera_str == "Ingeniería Industrial":
+                        frase_dinamica = "Optimizando procesos y creando eficiencia desde el aula hasta la industria."
+                    elif carrera_str == "Ingeniería Mecánica":
+                        frase_dinamica = "Forjando el futuro con precisión y diseño en cada proyecto DUAL."
+                    elif carrera_str == "Ingeniería en Gestión Empresarial":
+                        frase_dinamica = "Gestionando el talento y el liderazgo corporativo con visión DUAL."
+
                     ctx = {
                         "titulo_principal": "¡Registro Completado Exitosamente!",
                         "nombre_destinatario": f"{user.get('nombre')} {user.get('ap_paterno')}",
                         "nombre_alumno": f"{user.get('nombre')} {user.get('ap_paterno')}",
                         "matricula": user.get('matricula'),
-                        "carrera": "Carrera Técnica", # Simplified fallback
+                        "carrera": carrera_str if carrera_str else "Carrera Técnica", # Simplified fallback
                         "correo_institucional": user.get("email_institucional") or user.get("email_personal"),
                         "telefono": user.get('telefono'),
                         "filas_carga_academica": academic_load_html,
                         "empresa_sede": proj.get('ue_name', ''),
-                        "mentor_ue_nombre": proj.get('mentor_name', ''),
-                        "frase_inspiradora": "El aprendizaje en la práctica es el puente que transforma el talento estudiantil en excelencia profesional."
+                        "mentor_ue_nombre": proj.get('mentor_ue_name', ''),
+                        "frase_inspiradora": frase_dinamica
                     }
                     target = user.get("email_institucional") or user.get("email_personal")
                     if target:

@@ -37,6 +37,8 @@ def render_maestros():
                 for m in res.data:
                     st.session_state[f"sel_m_{m['id']}"] = select_all
                     
+            counter_placeholder = st.empty()
+                    
             hc0, hc1, hc2, hc3, hc4 = st.columns([0.5, 1, 3, 2, 2])
             hc0.write("**Sel.**")
             hc1.write("**Clave**")
@@ -133,6 +135,8 @@ def render_maestros():
                         st.rerun()
                 
                 st.divider()
+                
+            counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_teachers)}` de `{len(res.data)}`")
 
             # Batch Action Area
             if selected_teachers:
@@ -262,6 +266,45 @@ def render_maestros():
                             "Grupo": r.get('grupo')
                         })
                     st.dataframe(pd.DataFrame(stud_list), use_container_width=True)
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("📧 Enviar Relación por Correo", key=f"btn_send_rel_{t_id}"):
+                        res_t = supabase.table("maestros").select("email_institucional").eq("id", t_id).single().execute()
+                        t_email = res_t.data.get("email_institucional") if res_t.data else None
+                        
+                        if not t_email:
+                            st.error("El docente no cuenta con un correo institucional registrado para enviar la relación.")
+                        else:
+                            with st.spinner("Generando y enviando relación..."):
+                                # Generate HTML rows
+                                html_rows = ""
+                                for st_item in stud_list:
+                                    html_rows += f"<tr><td>{st_item['Matrícula']}</td><td>{st_item['Alumno']}</td><td>{st_item['Asignatura']} (Gpo: {st_item['Grupo']})</td></tr>"
+                                
+                                career_str = str(st.session_state.get("selected_career_name", "")).lower()
+                                frase_ie = "El aprendizaje en la práctica es el puente que transforma el talento en excelencia."
+                                if "sistemas" in career_str or "computacionales" in career_str:
+                                    frase_ie = "La tecnología y la programación son el motor de la innovación en el modelo DUAL."
+                                elif "industrial" in career_str:
+                                    frase_ie = "Optimizando procesos y creando eficiencia desde el aula hasta la industria."
+                                elif "mecánica" in career_str or "mecanica" in career_str:
+                                    frase_ie = "Forjando el futuro con precisión y diseño en cada proyecto DUAL."
+                                elif "administración" in career_str or "administracion" in career_str:
+                                    frase_ie = "Gestionando el talento y el liderazgo corporativo con visión DUAL."
+                                
+                                ctx = {
+                                    "mentor_nombre": t_name,
+                                    "tabla_alumnos": html_rows,
+                                    "frase_inspiradora": frase_ie
+                                }
+                                
+                                from src.utils.notifications import send_email
+                                suc, msg = send_email(t_email, "Relación Oficial de Alumnos Asignados - DUAL", "relacion_alumnos_ie.html", ctx)
+                                
+                                if suc:
+                                    st.success(f"Relación enviada exitosamente a {t_email}")
+                                else:
+                                    st.error(f"Error al enviar correo: {msg}")
                 else:
                     st.info("No hay alumnos inscritos con este maestro.")
             except Exception as ex:

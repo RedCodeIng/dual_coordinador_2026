@@ -392,19 +392,53 @@ def generate_pdf_from_docx(template_name, context, output_path, template_path=No
                 return True, f"Documento PDF generado exitosamente en: {output_path}"
                 
             except ImportError:
-                # Fallback if docx2pdf is missing on Windows
-                docx_final_path = output_path.replace('.pdf', '.docx')
-                if not docx_final_path.endswith('.docx'): docx_final_path += '.docx'
-                if os.path.exists(docx_final_path): os.remove(docx_final_path)
-                os.rename(temp_docx_path, docx_final_path)
-                return True, f"[Aviso] docx2pdf no instalado. Se generó formato Word exitosamente en: {docx_final_path}"
+                word_com_failed = True
             except Exception as e:
-                # Fallback genérico a Word si la conversión COM de Windows falla
+                word_com_failed = True
+                print(f"docx2pdf failed: {e}")
+                
+            if word_com_failed:
+                # Com Conversion Failed (Probably Linux / No Word installed)
+                # Let's try LibreOffice Headless (Streamlit Cloud Debian fallback)
+                libreoffice_success = False
+                try:
+                    import subprocess
+                    out_dir = os.path.dirname(output_path)
+                    
+                    process = subprocess.run(
+                        ['libreoffice', '--headless', '--nologo', '--nofirststartwizard', '--convert-to', 'pdf', temp_docx_path, '--outdir', out_dir],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=40
+                    )
+                    
+                    if process.returncode == 0:
+                        libreoffice_success = True
+                except Exception as ex:
+                    print(f"LibreOffice failed: {ex}")
+                
+                if libreoffice_success:
+                    # LibreOffice outputs with the identical basename but .pdf extension in the outdir
+                    lo_out_name = os.path.splitext(os.path.basename(temp_docx_path))[0] + ".pdf"
+                    lo_out_path = os.path.join(out_dir, lo_out_name)
+                    
+                    if os.path.exists(lo_out_path):
+                        if os.path.abspath(lo_out_path) != os.path.abspath(output_path):
+                            if os.path.exists(output_path): os.remove(output_path)
+                            os.rename(lo_out_path, output_path)
+                            
+                        try:
+                            os.remove(injected_path)
+                            os.remove(temp_docx_path)
+                        except: pass
+                        return True, f"Documento PDF generado exitosamente en la nube."
+
+                # Fallback genérico a Word si la conversión (COM y LibreOffice) falla
                 docx_final_path = output_path.replace('.pdf', '.docx')
                 if not docx_final_path.endswith('.docx'): docx_final_path += '.docx'
                 if os.path.exists(docx_final_path): os.remove(docx_final_path)
                 os.rename(temp_docx_path, docx_final_path)
-                return True, f"[Aviso] Falló conversión a PDF (Word cerrado o no activado). Se generó formato Word: {docx_final_path}"
+                return True, f"[Aviso] No hay conversor PDF. Se generó formato Word en su lugar."
         else:
             # Word DOCX requested explicit
             docx_final_path = output_path.replace('.pdf', '.docx')

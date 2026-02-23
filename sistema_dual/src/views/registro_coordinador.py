@@ -64,7 +64,6 @@ def render_registro_coordinador():
 
             carrera = st.selectbox("Carrera", ["Ingeniería en Sistemas Computacionales", "Ingeniería Industrial", "Ingeniería Mecánica"])
             semestre = st.selectbox("Semestre", ["6", "7", "8", "9"])
-            ultimo_semestre_convenio = st.checkbox("¿Es su último semestre de convenio (Por egresar/cerrar expediente)?", value=st.session_state["coord_student_data"].get("ultimo_semestre_convenio", False))
             
             submitted = st.form_submit_button("Siguiente >")
             if submitted:
@@ -79,8 +78,7 @@ def render_registro_coordinador():
                         "email_institucional": email_inst, "email_personal": email_pers, "telefono": telefono,
                         "carrera": carrera,
                         "semestre": semestre,
-                        "tipo_ingreso": tipo_ingreso,
-                        "ultimo_semestre_convenio": ultimo_semestre_convenio
+                        "tipo_ingreso": tipo_ingreso
                     })
                     st.session_state["coord_reg_step"] = 2
                     st.rerun()

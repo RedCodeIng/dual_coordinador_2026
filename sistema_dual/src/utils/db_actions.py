@@ -55,13 +55,11 @@ def create_student_transaction(student_data, project_data, subjects_data):
             "fecha_nacimiento": student_data["fecha_nacimiento"].isoformat() if hasattr(student_data["fecha_nacimiento"], 'isoformat') else student_data["fecha_nacimiento"],
             "carrera": student_data.get("carrera"),
             "semestre": student_data.get("semestre"),
-            "tipo_ingreso": student_data.get("tipo_ingreso", "Nuevo Ingreso"),
-            "ultimo_semestre_convenio": student_data.get("ultimo_semestre_convenio", False),
-            "estatus": "Registrado"
+            "estatus": "Activo" # Set to Activo upon successful transaction
         }
         
-        # Using Upsert to handle potential pre-filled data updates
-        res_student = supabase.table("alumnos").upsert(student_record).execute()
+        # Using Upsert to handle potential pre-filled data updates based on matricula constraint
+        res_student = supabase.table("alumnos").upsert(student_record, on_conflict="matricula").execute()
         
         if not res_student.data:
              return False, "Error al guardar datos del alumno."

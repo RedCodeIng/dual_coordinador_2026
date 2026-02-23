@@ -29,6 +29,8 @@ def render_empresas():
                     for ue in res.data:
                         st.session_state[f"sel_ue_{ue['id']}"] = select_all
                         
+                counter_placeholder = st.empty()
+                        
                 hc0, hc1, hc2, hc3 = st.columns([0.5, 3, 2, 2])
                 hc0.write("**Sel.**")
                 hc1.write("**Nombre Comercial**")
@@ -90,6 +92,8 @@ def render_empresas():
                                 st.error(f"Error al eliminar: {e}")
                     
                     st.divider()
+                    
+                counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_companies)}` de `{len(res.data)}`")
                     
                 # Batch Action Area
                 if selected_companies:

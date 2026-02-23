@@ -52,6 +52,8 @@ def render_asignaturas():
                     for s in res.data:
                         st.session_state[f"sel_s_{s['id']}"] = select_all
 
+                counter_placeholder = st.empty()
+
                 # Header row
                 hc0, hc1, hc2, hc3, hc4 = st.columns([0.5, 1.5, 4, 1, 2])
                 hc0.write("**Sel.**")
@@ -110,6 +112,8 @@ def render_asignaturas():
                             st.rerun()
                     
                     st.divider()
+
+                counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_subjects)}` de `{len(res.data)}`")
 
                 # Batch Action Area
                 if selected_subjects:

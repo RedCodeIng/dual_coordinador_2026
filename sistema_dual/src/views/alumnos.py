@@ -694,59 +694,122 @@ def render_alumnos():
 
     else:
         # LIST VIEW
-        tab1, tab2 = st.tabs(["Listado de Alumnos", "Registrar Nuevo Alumno"])
+        tabs = st.tabs(["Activos", "Reinscripciones", "Egresos", "Todos (Histórico)", "Registrar Nuevo Alumno"])
         
-        with tab1:
-            st.markdown("#### Alumnos Inscritos")
-            supabase = get_supabase_client()
-            
-            res = supabase.table("alumnos").select("*").order("ap_paterno").execute()
-            students = res.data
-            
-            if students:
-                # Add Select All functionality
-                col_sa1, col_sa2 = st.columns([1, 4])
-                with col_sa1:
-                    select_all = st.checkbox("☑️ Seleccionar Todos", key="sel_all_alumnos")
+        supabase = get_supabase_client()
+        res = supabase.table("alumnos").select("*").order("ap_paterno").execute()
+        all_students = res.data if res.data else []
+        
+        activos = [s for s in all_students if s.get("estatus") in ["Activo", "Registrado"]]
+        reinscripciones = [s for s in all_students if s.get("estatus") == "En Espera de Reinscripción"]
+        egresos = [s for s in all_students if s.get("estatus") in ["En Espera de Egreso", "Egresado", "Terminado"]]
+        
+        def _render_student_list(students_list, key_prefix):
+            if not students_list:
+                st.info("No hay alumnos en esta categoría.")
+                return
                 
-                if st.session_state.get("prev_sel_all_alumnos") != select_all:
-                    st.session_state["prev_sel_all_alumnos"] = select_all
-                    for s in students:
-                        st.session_state[f"sel_{s['id']}"] = select_all
+            # Add Select All functionality
+            col_sa1, col_sa2 = st.columns([1, 4])
+            with col_sa1:
+                select_all = st.checkbox("☑️ Seleccionar Todos", key=f"sel_all_{key_prefix}")
+            
+            if st.session_state.get(f"prev_sel_all_{key_prefix}") != select_all:
+                st.session_state[f"prev_sel_all_{key_prefix}"] = select_all
+                for s in students_list:
+                    st.session_state[f"sel_{key_prefix}_{s['id']}"] = select_all
 
-                # Add headers for columns
-                hc0, hc1, hc2, hc3, hc4 = st.columns([0.5, 1, 2, 2, 2])
-                hc0.write("**Sel.**")
-                hc1.write("**Matrícula**")
-                hc2.write("**Nombre del Alumno**")
-                hc3.write("**Correo Institucional**")
+            counter_placeholder = st.empty()
+
+            # Add headers for columns
+            hc0, hc1, hc2, hc3, hc4 = st.columns([0.5, 1, 2, 2, 2])
+            hc0.write("**Sel.**")
+            hc1.write("**Matrícula**")
+            hc2.write("**Nombre del Alumno**")
+            hc3.write("**Estatus**")
+            st.divider()
+
+            selected_students = []
+            for s in students_list:
+                c0, c1, c2, c3, c4 = st.columns([0.5, 1, 2, 2, 2])
+                
+                with c0:
+                    is_checked = st.checkbox(" ", key=f"sel_{key_prefix}_{s['id']}")
+                    if is_checked:
+                        selected_students.append(s['id'])
+                        
+                c1.write(f"**{s['matricula']}**")
+                c2.write(f"{s['ap_paterno']} {s['ap_materno']} {s['nombre']}")
+                c3.caption(s.get("estatus", ""))
+                
+                with c4:
+                    if st.button("Ver Expediente", key=f"view_st_{key_prefix}_{s['id']}"):
+                        st.session_state["view_student_id"] = s["id"]
+                        st.rerun()
                 st.divider()
+                
+            counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_students)}` de `{len(students_list)}`")
 
-                selected_students = []
-                for s in students:
-                    c0, c1, c2, c3, c4 = st.columns([0.5, 1, 2, 2, 2])
-                    
-                    with c0:
-                        is_checked = st.checkbox(" ", key=f"sel_{s['id']}")
-                        if is_checked:
-                            selected_students.append(s['id'])
-                            
-                    c1.write(f"**{s['matricula']}**")
-                    c2.write(f"{s['ap_paterno']} {s['ap_materno']} {s['nombre']}")
-                    c3.write(s.get('email_institucional', ''))
-                    
-                    with c4:
-                        if st.button("Ver Expediente", key=f"view_st_{s['id']}"):
-                            st.session_state["view_student_id"] = s["id"]
-                            st.rerun()
-                    st.divider()
-
-                # Batch Action Area
-                if selected_students:
-                    st.warning(f"⚠️ {len(selected_students)} alumno(s) seleccionado(s) para dar de baja.")
-                    with st.form("batch_delete_form"):
-                        confirm_batch = st.checkbox("Confirmar baja definitiva de los alumnos seleccionados.")
-                        if st.form_submit_button("Dar de Baja Seleccionados"):
+            # Batch Action Area
+            if selected_students:
+                st.warning(f"Opciones para los {len(selected_students)} alumno(s) seleccionado(s):")
+                
+                col_b1, col_b2, col_b3 = st.columns(3)
+                
+                with col_b1:
+                    with st.form(f"batch_export_form_{key_prefix}"):
+                        st.markdown("**Exportar a Lista Blanca**")
+                        st.caption("Autoriza a inscribirse en el periodo activo.")
+                        if st.form_submit_button("Añadir a Lista Blanca", type="primary"):
+                            try:
+                                from src.utils.db_actions import get_active_period_id
+                                periodo_id = get_active_period_id()
+                                
+                                if not periodo_id:
+                                    st.error("No hay un periodo activo para exportarlos. Active un periodo primero.")
+                                else:
+                                    insert_data = []
+                                    res_sel = supabase.table("alumnos").select("matricula, curp, nombre, ap_paterno, ap_materno, carrera_id").in_("id", selected_students).execute()
+                                    
+                                    for row in res_sel.data:
+                                        full_name = f"{row.get('nombre', '')} {row.get('ap_paterno', '')} {row.get('ap_materno', '')}".strip()
+                                        insert_data.append({
+                                            "matricula": row.get('matricula'),
+                                            "curp": row.get('curp'),
+                                            "nombre_completo": full_name,
+                                            "carrera_id": row.get('carrera_id'),
+                                            "periodo_id": periodo_id
+                                        })
+                                        
+                                    if insert_data:
+                                        supabase.table("lista_blanca").upsert(insert_data, on_conflict="matricula").execute()
+                                        st.success(f"{len(insert_data)} alumnos agregados a la Lista Blanca.")
+                                        st.rerun()
+                            except Exception as e:
+                                st.error(f"Error al exportar: {e}")
+                
+                with col_b2:
+                    with st.form(f"batch_egreso_form_{key_prefix}"):
+                        st.markdown("**Mover a Egreso**")
+                        st.caption("Cambia el estatus a 'En Espera de Egreso'.")
+                        confirm_egreso = st.checkbox("Confirmo mover a egreso.")
+                        if st.form_submit_button("Mover a Egreso", type="secondary"):
+                            if confirm_egreso:
+                                try:
+                                    supabase.table("alumnos").update({"estatus": "En Espera de Egreso"}).in_("id", selected_students).execute()
+                                    st.success(f"{len(selected_students)} alumno(s) movidos a Egreso.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al actualizar: {e}")
+                            else:
+                                st.error("Por favor, marque la casilla.")
+                                
+                with col_b3:
+                    with st.form(f"batch_delete_form_{key_prefix}"):
+                        st.markdown("**Baja Definitiva**")
+                        st.caption("Eliminar permanentemente.")
+                        confirm_batch = st.checkbox("Confirmo la baja.")
+                        if st.form_submit_button("Dar de Baja Definitiva"):
                             if confirm_batch:
                                 try:
                                     supabase.table("alumnos").delete().in_("id", selected_students).execute()
@@ -755,9 +818,25 @@ def render_alumnos():
                                 except Exception as e:
                                     st.error(f"Error en baja masiva: {e}")
                             else:
-                                st.error("Por favor, marque la casilla de confirmación para proceder.")
-            else:
-                st.info("No hay alumnos registrados aún.")
+                                st.error("Por favor, marque la casilla.")
+        
+        with tabs[0]:
+            st.markdown("#### Alumnos Activos (Periodo Actual)")
+            _render_student_list(activos, "activos")
+            
+        with tabs[1]:
+            st.markdown("#### En Espera de Reinscripción")
+            st.info("Estos alumnos terminaron el periodo anterior y su convenio sigue vigente. Al ingresar al sistema, se les pedirá su carga académica para el nuevo periodo.")
+            _render_student_list(reinscripciones, "reins")
+            
+        with tabs[2]:
+            st.markdown("#### En Espera de Egreso / Terminados")
+            st.info("Alumnos que han finalizado su carga académica y su convenio. Esperan la emisión de sus documentos finales de egreso DUAL.")
+            _render_student_list(egresos, "egresos")
+            
+        with tabs[3]:
+            st.markdown("#### Histórico Completo de Alumnos")
+            _render_student_list(all_students, "todos")
 
-        with tab2:
+        with tabs[4]:
             render_registro_coordinador()

@@ -69,56 +69,57 @@ def render_periodos():
             is_active = st.checkbox("Establecer como Activo", value=False)
             
             submitted = st.form_submit_button("Crear Periodo")
-            if submitted:
-                nombre_periodo = nombre_periodo.strip()
-                if not nombre_periodo:
-                    st.error("El nombre es requerido.")
-                else:
-                    try:
-                        # Deactivate others if this one is active (Scoped by Career)
-                        if is_active:
-                            query_deact = supabase.table("periodos").update({"activo": False}).neq("id", "00000000-0000-0000-0000-000000000000")
-                            if coordinator_career_id:
-                                query_deact = query_deact.eq("carrera_id", coordinator_career_id)
-                            query_deact.execute()
-                            wipe_mentor_passwords(supabase)
-                        
-                        new_period = {
-                            "nombre": nombre_periodo,
-                            "fecha_inicio": str(fecha_inicio),
-                            "fecha_fin": str(fecha_fin),
-                            "fecha_limite_registro": str(fecha_limite),
-                            "inicio_anexo_1": str(d1_inicio),
-                            "fin_anexo_1": str(d1_fin),
-                            "inicio_anexo_2": str(d2_inicio),
-                            "fin_anexo_2": str(d2_fin),
-                            "inicio_anexo_3": str(d3_inicio),
-                            "fin_anexo_3": str(d3_fin),
-                            "inicio_doc_4": str(d4_inicio),
-                            "fin_doc_4": str(d4_fin),
-                            "inicio_doc_5": str(d5_inicio),
-                            "fin_doc_5": str(d5_fin),
-                            "activo": is_active,
-                            "carrera_id": coordinator_career_id # Associate logic
+            
+        if submitted:
+            nombre_periodo = nombre_periodo.strip()
+            if not nombre_periodo:
+                st.error("El nombre es requerido.")
+            else:
+                try:
+                    # Deactivate others if this one is active (Scoped by Career)
+                    if is_active:
+                        query_deact = supabase.table("periodos").update({"activo": False}).neq("id", "00000000-0000-0000-0000-000000000000")
+                        if coordinator_career_id:
+                            query_deact = query_deact.eq("carrera_id", coordinator_career_id)
+                        query_deact.execute()
+                        wipe_mentor_passwords(supabase)
+                    
+                    new_period = {
+                        "nombre": nombre_periodo,
+                        "fecha_inicio": str(fecha_inicio),
+                        "fecha_fin": str(fecha_fin),
+                        "fecha_limite_registro": str(fecha_limite),
+                        "inicio_anexo_1": str(d1_inicio),
+                        "fin_anexo_1": str(d1_fin),
+                        "inicio_anexo_2": str(d2_inicio),
+                        "fin_anexo_2": str(d2_fin),
+                        "inicio_anexo_3": str(d3_inicio),
+                        "fin_anexo_3": str(d3_fin),
+                        "inicio_doc_4": str(d4_inicio),
+                        "fin_doc_4": str(d4_fin),
+                        "inicio_doc_5": str(d5_inicio),
+                        "fin_doc_5": str(d5_fin),
+                        "activo": is_active,
+                        "carrera_id": coordinator_career_id # Associate logic
+                    }
+                    
+                    supabase.table("periodos").insert(new_period).execute()
+                    st.success(f"Periodo '{nombre_periodo}' creado exitosamente.")
+                    
+                    if notificar_correo:
+                        dates_dict = {
+                            "Anexo 1 (Plan de Formación)": (d1_inicio, d1_fin),
+                            "Anexo 2 (Carta de Asignación)": (d2_inicio, d2_fin),
+                            "Anexo 3 (Reporte Bimestral)": (d3_inicio, d3_fin),
+                            "Documento 4": (d4_inicio, d4_fin),
+                            "Documento 5": (d5_inicio, d5_fin)
                         }
+                        send_period_invites(notificar_correo, nombre_periodo, dates_dict)
+                        st.info(f"Invitaciones de calendario enviadas a: {notificar_correo}")
                         
-                        supabase.table("periodos").insert(new_period).execute()
-                        st.success(f"Periodo '{nombre_periodo}' creado exitosamente.")
-                        
-                        if notificar_correo:
-                            dates_dict = {
-                                "Anexo 1 (Plan de Formación)": (d1_inicio, d1_fin),
-                                "Anexo 2 (Carta de Asignación)": (d2_inicio, d2_fin),
-                                "Anexo 3 (Reporte Bimestral)": (d3_inicio, d3_fin),
-                                "Documento 4": (d4_inicio, d4_fin),
-                                "Documento 5": (d5_inicio, d5_fin)
-                            }
-                            send_period_invites(notificar_correo, nombre_periodo, dates_dict)
-                            st.info(f"Invitaciones de calendario enviadas a: {notificar_correo}")
-                            
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al crear: {e}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al crear: {e}")
 
     # --- List Periods ---
     st.markdown("#### Listado de Periodos")
@@ -276,7 +277,7 @@ def render_periodos():
                      action_close = st.radio("Acción para los alumnos inscritos:", [
                          "1) Archivar a Todos (Finalizar)",
                          "2) Analizar y Retener (Reinscripción Automática)"
-                     ], help="La Opción 2 mantendrá activos a los alumnos cuyo 'ultimo_semestre_convenio' sea Falso, preparándolos para el siguiente periodo. Borrará únicamente su carga académica pero conservará su proyecto.")
+                     ], help="La Opción 2 mantendrá activos a los alumnos que aún no terminan su convenio, preparándolos para el siguiente periodo. Borrará únicamente su carga académica pero conservará su proyecto.")
                      
                      if st.button("Ejecutar Cierre de Periodo", type="primary", key=f"btn_close_adv_{p['id']}"):
                          try:
@@ -295,30 +296,38 @@ def render_periodos():
                                      st.success(f"{len(s_ids)} alumnos marcados como Terminados.")
                              
                              elif "Analizar y Retener" in action_close:
-                                 res_proj = supabase.table("proyectos_dual").select("alumno_id").eq("periodo_id", p['id']).execute()
+                                 res_proj = supabase.table("proyectos_dual").select("alumno_id, fecha_fin_convenio").eq("periodo_id", p['id']).execute()
                                  if res_proj.data:
-                                     s_ids = [r['alumno_id'] for r in res_proj.data]
-                                     res_studs = supabase.table("alumnos").select("id, ultimo_semestre_convenio").in_("id", s_ids).execute()
-                                     
-                                     to_archive = []
+                                     to_grad = []
                                      to_keep = []
-                                     if res_studs.data:
-                                         for st_row in res_studs.data:
-                                             if st_row.get("ultimo_semestre_convenio"):
-                                                 to_archive.append(st_row["id"])
-                                             else:
-                                                 to_keep.append(st_row["id"])
                                      
-                                     # Archive those who finished
-                                     if to_archive:
-                                         supabase.table("alumnos").update({"estatus": "Terminado"}).in_("id", to_archive).execute()
+                                     # Get current period end date
+                                     period_end_date_str = p.get('fecha_fin')
+                                     period_end_date = datetime.strptime(period_end_date_str, '%Y-%m-%d').date() if period_end_date_str else datetime.today().date()
                                      
-                                     # Set 'to_keep' as 'En Espera de Reinscripción' so they can login and re-register load
+                                     for row in res_proj.data:
+                                         al_id = row['alumno_id']
+                                         fin_conv_str = row.get('fecha_fin_convenio')
+                                         
+                                         if fin_conv_str:
+                                             try:
+                                                fin_conv = datetime.strptime(fin_conv_str, '%Y-%m-%d').date()
+                                                if fin_conv <= period_end_date:
+                                                    to_grad.append(al_id)
+                                                else:
+                                                    to_keep.append(al_id)
+                                             except ValueError:
+                                                to_keep.append(al_id) # Safe fallback
+                                         else:
+                                             to_keep.append(al_id) # Safe fallback
+                                     
+                                     if to_grad:
+                                         supabase.table("alumnos").update({"estatus": "En Espera de Egreso"}).in_("id", to_grad).execute()
+                                     
                                      if to_keep:
                                          supabase.table("alumnos").update({"estatus": "En Espera de Reinscripción"}).in_("id", to_keep).execute()
-                                         # Delete their academic load from this period so that next time they register they start fresh
-                                         supabase.table("inscripciones_asignaturas").delete().in_("alumno_id", to_keep).eq("periodo_id", p['id']).execute()
-                                         st.success(f"{len(to_archive)} archivados. {len(to_keep)} conservan convenio y esperan su nueva carga académica.")
+                                         
+                                     st.success(f"{len(to_grad)} alumnos pasados a Espera de Egreso. {len(to_keep)} conservan convenio y esperan su nueva carga académica.")
                              
                              st.rerun()
                          except Exception as e:
