@@ -242,13 +242,13 @@ def render_fases_control():
             st.warning("No hay Mentores UE asignados a proyectos activos.")
             
         st.divider()
-        st.markdown("#### 📨 Bandeja de Entrada: Evaluaciones UE Recientes")
-        st.info("Alumnos que ya fueron calificados por la empresa pero su Anexo 5.4 aún no ha sido sincronizado ni enviado.")
+        st.markdown("#### 📨 Historial: Anexos 5.4 Enviados (Evaluaciones UE)")
+        st.info("Alumnos que ya fueron evaluados por la empresa. Su Anexo 5.4 se sincronizó y envió automáticamente. Utilice esta lista para consultas o reenvíos.")
         
-        # Query students with calificacion_ue NOT NULL and anexo_54_enviado FALSE
+        # Query students with calificacion_ue NOT NULL and anexo_54_enviado TRUE (Historial)
         res_inbox = supabase.table("proyectos_dual").select(
              "id, alumno_id, calificacion_ue, alumnos(matricula, nombre, ap_paterno, ap_materno, email_institucional, email_personal)"
-        ).not_.is_("calificacion_ue", "null").is_("anexo_54_enviado", False).execute()
+        ).not_.is_("calificacion_ue", "null").is_("anexo_54_enviado", True).execute()
         
         if res_inbox.data:
              inbox_cols = st.columns([3, 2, 2])
@@ -265,8 +265,8 @@ def render_fases_control():
                   c1.write(f"🧑‍🎓 {name} ({matr})")
                   c2.write(f"⭐ {p.get('calificacion_ue')}/10.0")
                   
-                  if c3.button("Sincronizar y Enviar", key=f"btn_sync_{p['id']}"):
-                       with st.spinner("Generando PDF y enviando..."):
+                  if c3.button("Reenviar Documento Oficial", key=f"btn_sync_{p['id']}"):
+                       with st.spinner("Regenerando PDF y reenviando correos..."):
                             import tempfile, shutil, time
                             from src.utils.anexo_data import get_anexo_5_4_data
                             
@@ -318,10 +318,7 @@ def render_fases_control():
                                            success_flags.append(ssuc)
                                            
                                       if any(success_flags):
-                                           # Mark as sent in DB
-                                           supabase.table("proyectos_dual").update({"anexo_54_enviado": True}).eq("id", p['id']).execute()
-                                           st.success("Sincronizado y Enviado.")
-                                           st.rerun()
+                                           st.success("Anexo 5.4 Oficial Reenviado a las partes.")
                                       else:
                                            st.error("No se pudo enviar el correo.")
                                            

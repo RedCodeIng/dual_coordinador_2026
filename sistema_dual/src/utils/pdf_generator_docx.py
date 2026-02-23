@@ -405,17 +405,29 @@ def generate_pdf_from_docx(template_name, context, output_path, template_path=No
                     import subprocess
                     out_dir = os.path.dirname(output_path)
                     
-                    process = subprocess.run(
-                        ['libreoffice', '--headless', '--nologo', '--nofirststartwizard', '--convert-to', 'pdf', temp_docx_path, '--outdir', out_dir],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        timeout=40
-                    )
+                    # Streamlit Cloud (Debian) LibreOffice fixes
+                    env = os.environ.copy()
+                    env['HOME'] = '/tmp'  # LibreOffice requires a writable HOME directory to create user profiles
                     
-                    if process.returncode == 0:
-                        libreoffice_success = True
-                except Exception as ex:
-                    print(f"LibreOffice failed: {ex}")
+                    for cmd in ['libreoffice', 'soffice']:
+                        try:
+                            process = subprocess.run(
+                                [cmd, '--headless', '--nologo', '--nofirststartwizard', '--convert-to', 'pdf', temp_docx_path, '--outdir', out_dir],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                timeout=60,
+                                env=env
+                            )
+                            
+                            if process.returncode == 0:
+                                libreoffice_success = True
+                                break
+                            else:
+                                print(f"[{cmd}] Fallo de conversión: {process.stderr.decode('utf-8', errors='ignore')}")
+                        except Exception as ex:
+                            print(f"[{cmd}] Excepción de ejecución: {ex}")
+                except Exception as out_ex:
+                    print(f"Fallo general LibreOffice: {out_ex}")
                 
                 if libreoffice_success:
                     # LibreOffice outputs with the identical basename but .pdf extension in the outdir
