@@ -271,64 +271,53 @@ def render_periodos():
                             st.error(f"Error durante la purga: {e}")
 
             else:
-                 with c3.popover("⚙️ Cerrar Periodo (Opciones)"):
-                     st.write("**Periodo Activo.** Al cerrar el periodo, se borrarán las contraseñas temporales de los Mentores IE.")
+                 with c3.popover("⚙️ Cerrar Periodo"):
+                     st.write("**Periodo Activo.** Al cerrar el periodo, los alumnos activos serán evaluados y enviados a 'Egresos' o 'Reinscripción' dependiendo de la vigencia de su convenio. También se borrarán las contraseñas temporales de los Mentores UE.")
                      
-                     action_close = st.radio("Acción para los alumnos inscritos:", [
-                         "1) Archivar a Todos (Finalizar)",
-                         "2) Analizar y Retener (Reinscripción Automática)"
-                     ], help="La Opción 2 mantendrá activos a los alumnos que aún no terminan su convenio, preparándolos para el siguiente periodo. Borrará únicamente su carga académica pero conservará su proyecto.")
-                     
-                     if st.button("Ejecutar Cierre de Periodo", type="primary", key=f"btn_close_adv_{p['id']}"):
+                     if st.button("Ejecutar Cierre Automático", type="primary", key=f"btn_close_adv_{p['id']}"):
                          try:
                              # 1. Disable Period & Wipe Passwords
                              supabase.table("periodos").update({"activo": False}).eq("id", p['id']).execute()
                              wipe_mentor_passwords(supabase)
                              
-                             # 2. Handle Students
-                             if "Archivar a Todos" in action_close:
-                                 # This sets statuses to Archivados or leaves them inactive. We'll set estatus to "Terminado"
-                                 # Find all students in this period
-                                 res_proj = supabase.table("proyectos_dual").select("alumno_id").eq("periodo_id", p['id']).execute()
-                                 if res_proj.data:
-                                     s_ids = [r['alumno_id'] for r in res_proj.data]
-                                     supabase.table("alumnos").update({"estatus": "Terminado"}).in_("id", s_ids).execute()
-                                     st.success(f"{len(s_ids)} alumnos marcados como Terminados.")
+                             # 2. Automated Handle Students based on fecha_fin_convenio
+                             res_proj = supabase.table("proyectos_dual").select("alumno_id, fecha_fin_convenio").eq("periodo_id", p['id']).execute()
+                             if res_proj.data:
+                                 to_grad = []
+                                 to_keep = []
+                                 
+                                 # Get current period end date
+                                 period_end_date_str = p.get('fecha_fin')
+                                 period_end_date = datetime.strptime(period_end_date_str, '%Y-%m-%d').date() if period_end_date_str else datetime.today().date()
+                                 
+                                 for row in res_proj.data:
+                                     al_id = row['alumno_id']
+                                     fin_conv_str = row.get('fecha_fin_convenio')
+                                     
+                                     if fin_conv_str:
+                                         try:
+                                            fin_conv = datetime.strptime(fin_conv_str, '%Y-%m-%d').date()
+                                            if fin_conv <= period_end_date:
+                                                to_grad.append(al_id) # Finalizó
+                                            else:
+                                                to_keep.append(al_id) # Sigue vivo (Reinscribe)
+                                         except ValueError:
+                                            to_keep.append(al_id) # Safe fallback
+                                     else:
+                                         to_keep.append(al_id) # Safe fallback
+                                 
+                                 if to_grad:
+                                     supabase.table("alumnos").update({"estatus": "En Espera de Egreso"}).in_("id", to_grad).execute()
+                                 
+                                 if to_keep:
+                                     supabase.table("alumnos").update({"estatus": "En Espera de Reinscripción"}).in_("id", to_keep).execute()
+                                     
+                                 st.success(f"Cierre completado. {len(to_grad)} pasaron a Egreso y {len(to_keep)} a Reinscripción.")
+                             else:
+                                 st.success("Periodo cerrado. No había proyectos activos.")
                              
-                             elif "Analizar y Retener" in action_close:
-                                 res_proj = supabase.table("proyectos_dual").select("alumno_id, fecha_fin_convenio").eq("periodo_id", p['id']).execute()
-                                 if res_proj.data:
-                                     to_grad = []
-                                     to_keep = []
-                                     
-                                     # Get current period end date
-                                     period_end_date_str = p.get('fecha_fin')
-                                     period_end_date = datetime.strptime(period_end_date_str, '%Y-%m-%d').date() if period_end_date_str else datetime.today().date()
-                                     
-                                     for row in res_proj.data:
-                                         al_id = row['alumno_id']
-                                         fin_conv_str = row.get('fecha_fin_convenio')
-                                         
-                                         if fin_conv_str:
-                                             try:
-                                                fin_conv = datetime.strptime(fin_conv_str, '%Y-%m-%d').date()
-                                                if fin_conv <= period_end_date:
-                                                    to_grad.append(al_id)
-                                                else:
-                                                    to_keep.append(al_id)
-                                             except ValueError:
-                                                to_keep.append(al_id) # Safe fallback
-                                         else:
-                                             to_keep.append(al_id) # Safe fallback
-                                     
-                                     if to_grad:
-                                         supabase.table("alumnos").update({"estatus": "En Espera de Egreso"}).in_("id", to_grad).execute()
-                                     
-                                     if to_keep:
-                                         supabase.table("alumnos").update({"estatus": "En Espera de Reinscripción"}).in_("id", to_keep).execute()
-                                         
-                                     st.success(f"{len(to_grad)} alumnos pasados a Espera de Egreso. {len(to_keep)} conservan convenio y esperan su nueva carga académica.")
-                             
+                             import time
+                             time.sleep(2)
                              st.rerun()
                          except Exception as e:
                              st.error(f"Error al cerrar periodo: {e}")

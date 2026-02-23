@@ -228,10 +228,11 @@ def render_fases_control():
                         ctx = {
                             "mentor_nombre": m_name,
                             "mentor_email": m_email,
-                            "mentor_password": raw_password
+                            "mentor_password": raw_password,
+                            "empresa_nombre": ue_name
                         }
                         
-                        success_m, msg_m = send_email(m_email, "Sistema DUAL - Portal de Evaluación Empresarial", "recuperacion_mentor.html", ctx, attachments)
+                        success_m, msg_m = send_email(m_email, "Sistema DUAL - Portal de Evaluación Empresarial", "nuevo_mentor.html", ctx, attachments)
                         
                         if success_m:
                             st.success(f"Correo y claves enviados a {m_email}.")
@@ -475,11 +476,11 @@ def render_fases_control():
                 c_ie = proj.get('calificacion_ie')
                 
                 # Handling None values safely
-                val_ue = float(c_ue) if c_ue is not None else 0.0
-                val_ie = float(c_ie) if c_ie is not None else 0.0
+                val_ue = float(c_ue) if c_ue is not None else 0.0 # 0-100 scale
+                val_ie = float(c_ie) if c_ie is not None else 0.0 # 0-10 scale
                 
-                # Consolidation Logic
-                final_grade = (val_ue * 0.7) + (val_ie * 0.3)
+                # Consolidation Logic (Convert everything to a 10-point scale)
+                final_grade = ((val_ue / 10.0) * 0.7) + (val_ie * 0.3)
                 
                 status_color = "🟢" if final_grade >= 7.0 and c_ue is not None and c_ie is not None else "🔴"
                 if c_ue is None or c_ie is None: status_color = "🟡" # Pendiente
@@ -489,25 +490,76 @@ def render_fases_control():
                 
                 # Let coordinator manually adjust if needed via a quick popover
                 with c5_2.popover(f"UE: {val_ue} (70%)"):
-                    new_ue = st.number_input("Ajustar Calif. UE", min_value=0.0, max_value=10.0, value=val_ue, step=0.1, key=f"adj_ue_{proj['id']}")
+                    new_ue = st.number_input("Ajustar Calif. UE (Escala 0-100)", min_value=0.0, max_value=100.0, value=val_ue, step=1.0, key=f"adj_ue_{proj['id']}")
                     if st.button("Guardar (UE)", key=f"save_ue_{proj['id']}"):
                         supabase.table("proyectos_dual").update({"calificacion_ue": new_ue}).eq("id", proj['id']).execute()
                         st.rerun()
                         
-                with c5_3.popover(f"IE: {val_ie} (30%)"):
-                    new_ie = st.number_input("Ajustar Calif. IE", min_value=0.0, max_value=10.0, value=val_ie, step=0.1, key=f"adj_ie_{proj['id']}")
+                with c5_3.popover(f"IE: {val_ie:.1f} (30%)"):
+                    new_ie = st.number_input("Ajustar Calif. IE (Escala 0-10)", min_value=0.0, max_value=10.0, value=val_ie, step=0.1, key=f"adj_ie_{proj['id']}")
                     if st.button("Guardar (IE)", key=f"save_ie_{proj['id']}"):
                         supabase.table("proyectos_dual").update({"calificacion_ie": new_ie}).eq("id", proj['id']).execute()
                         st.rerun()
                 
-                c5_4.markdown(f"**Total: {final_grade:.2f}**")
+                c5_4.markdown(f"**Total: {final_grade:.2f}/10**")
                 
                 # To do: Generate real Anexo 5.5
                 c5_5.button("Emitir 5.5", key=f"f5_btn_{proj['id']}", disabled=(c_ue is None or c_ie is None))
             
             st.divider()
             st.markdown("##### Acciones Globales")
-            st.button("📄 Exportar Actas (PDF por Materia-Profesor)", type="secondary", use_container_width=True)
+            
+            if st.button("📄 Exportar Actas de Calificaciones (DOCX)", type="secondary", use_container_width=True):
+                with st.spinner("Generando Acta Global DUAL..."):
+                    import os, base64, tempfile, time
+                    from src.utils.pdf_generator_docx import generate_docx_document
+                    
+                    # Construct Data for the Template
+                    lista_alumnos = []
+                    for idx, proj in enumerate(res_p5.data):
+                        student = proj.get('alumnos') or {}
+                        c_ue = proj.get('calificacion_ue')
+                        c_ie = proj.get('calificacion_ie')
+                        
+                        val_ue = float(c_ue) if c_ue is not None else 0.0
+                        val_ie = float(c_ie) if c_ie is not None else 0.0
+                        final_grade = min(10.0, ((val_ue / 10.0) * 0.7) + (val_ie * 0.3))
+                        
+                        letra = "Acreditada" if final_grade >= 7.0 else "No Acreditada"
+                        if c_ue is None or c_ie is None: letra = "Pendiente de Evaluar"
+                        
+                        lista_alumnos.append({
+                            "numero": idx + 1,
+                            "matricula": student.get("matricula", "S/N"),
+                            "nombre_alumno": f"{student.get('nombre', '')} {student.get('ap_paterno', '')} {student.get('ap_materno', '')}".strip(),
+                            "calificacion_final": f"{final_grade:.2f}" if c_ue is not None and c_ie is not None else "N/A",
+                            "calificacion_letra": letra
+                        })
+                        
+                    acta_data = {
+                        "fecha_impresion": datetime.today().strftime('%d/%m/%Y'),
+                        "periodo_escolar": "Semestre Actual", # Could be dynamically fetched
+                        "asignatura": "PROGRAMA EDUCACIÓN DUAL (GLOBAL)",
+                        "profesor": user.get('nombre_completo', 'Coordinador DUAL'),
+                        "alumnos": lista_alumnos
+                    }
+                    
+                    tmp_dir = os.path.join(tempfile.gettempdir(), f"dual_actas_{int(time.time())}")
+                    os.makedirs(tmp_dir, exist_ok=True)
+                    docx_path = os.path.join(tmp_dir, "Acta_Calificaciones_DUAL.docx")
+                    t_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "docs", "Acta_Calificaciones_Materia.docx")
+                    
+                    suc, msg = generate_docx_document("Acta_Calificaciones_Materia.docx", acta_data, docx_path, t_path)
+                    
+                    if suc and os.path.exists(docx_path):
+                        with open(docx_path, "rb") as f:
+                            docx_bytes = f.read()
+                        b64_docx = base64.b64encode(docx_bytes).decode()
+                        download_href = f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64_docx}" download="Acta_Calificaciones_DUAL.docx" style="display:inline-block; padding:8px 16px; background-color:#8d2840; color:white; text-decoration:none; border-radius:4px; font-weight:bold;">⬇️ Descargar Acta de Calificaciones DUAL (DOCX)</a>'
+                        st.markdown(download_href, unsafe_allow_html=True)
+                        st.success("Acta generada exitosamente. Haga clic en el botón superior para descargarla.")
+                    else:
+                        st.error(f"Error al generar Acta: {msg}")
             
             if st.button("🎓 Generar Cartas de Terminación y Reconocimientos en Lote (Fase 5.1)", type="primary", use_container_width=True, key="btn_lote_51"):
                 with st.spinner("Generando documentos de cierre en lote..."):
