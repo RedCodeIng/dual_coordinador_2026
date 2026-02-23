@@ -26,7 +26,24 @@ def render_maestros():
             
         res = query.execute()
         
+        # --- Search Filter ---
+        col_search_1, col_search_2 = st.columns([1, 4])
+        with col_search_1:
+            search_query = st.text_input("🔍 Buscar Maestro:", key="search_maestros").lower()
+        
+        # Filter results in memory
+        filtered_data = []
         if res.data:
+            for item in res.data:
+                c = item.get("clave_maestro", "").lower()
+                n = item.get("nombre_completo", "").lower()
+                e = item.get("email_institucional", "")
+                e_lower = e.lower() if e else ""
+                
+                if not search_query or search_query in c or search_query in n or search_query in e_lower:
+                    filtered_data.append(item)
+        
+        if filtered_data:
             # Add Select All functionality
             col_sa1, col_sa2 = st.columns([1, 4])
             with col_sa1:
@@ -34,7 +51,7 @@ def render_maestros():
                 
             if st.session_state.get("prev_sel_all_maestros") != select_all:
                 st.session_state["prev_sel_all_maestros"] = select_all
-                for m in res.data:
+                for m in filtered_data:
                     st.session_state[f"sel_m_{m['id']}"] = select_all
                     
             counter_placeholder = st.empty()
@@ -49,7 +66,7 @@ def render_maestros():
             selected_teachers = []
             
             # Use detailed view instead of just a dataframe
-            for m in res.data:
+            for m in filtered_data:
                 cont = st.container()
                 c0, c1, c2, c3, c4 = cont.columns([0.5, 1, 3, 2, 2])
                 
@@ -123,6 +140,7 @@ def render_maestros():
                             }
                             from src.utils.notifications import send_email
                             send_email(m.get('email_institucional', ''), "Credenciales de Acceso Mentor IE - Sistema DUAL", "recuperacion_mentor.html", ctx)
+                            st.toast("Contraseña regenerada y enviada al docente.", icon="✅")
                             st.success(f"Contraseña de Mentor IE regenerada y enviada a {m['nombre_completo']}.")
                             st.info(f"Contraseña temporal nueva: **{raw_pw}**")
                         st.divider()
@@ -136,7 +154,7 @@ def render_maestros():
                 
                 st.divider()
                 
-            counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_teachers)}` de `{len(res.data)}`")
+            counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_teachers)}` de `{len(filtered_data)}`")
 
             # Batch Action Area
             if selected_teachers:
@@ -189,6 +207,7 @@ def render_maestros():
                                 send_email(t_info['email_institucional'], "Credenciales de Acceso Mentor IE - Sistema DUAL", "nuevo_mentor_ie.html", ctx)
                                 sent_count += 1
                                 
+                        st.toast(f"Credenciales enviadas a {sent_count} Mentores IE.", icon="✅")
                         st.success(f"Se generaron y enviaron credenciales a {sent_count} Mentores IE.")
                         # We don't always rerun immediately to let them read the success message.
 

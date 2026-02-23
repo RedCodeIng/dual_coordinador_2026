@@ -314,7 +314,7 @@ def render_fases_control():
                                                 <p>Adjuntamos el <strong>Anexo 5.4 (Reporte de Actividades DUAL)</strong> como respaldo de tu excelente desempeño empresarial correspondiente al 70% de tu calificación DUAL.</p>
                                                 """
                                            }
-                                           ssuc, _ = send_email(s_email, f"Sistema DUAL - Evaluación Empresarial (Anexo 5.4)", "base_notification.html", ctx_student, [pdf_path])
+                                           ssuc, _ = send_email(s_email, f"Sistema DUAL - Evaluación Empresarial (Anexo 5.4)", "base_notification.html", ctx_student, [docx_path])
                                            success_flags.append(ssuc)
                                            
                                       if any(success_flags):
@@ -369,10 +369,10 @@ def render_fases_control():
                                       
                                       sent_any = False
                                       if m_email:
-                                           sent, _ = send_email(m_email, f"Sistema DUAL - Anexo 5.4 Final", "base_notification.html", ctx_mentor, [pdf_path])
+                                           sent, _ = send_email(m_email, f"Sistema DUAL - Anexo 5.4 Final", "base_notification.html", ctx_mentor, [docx_path])
                                            if sent: sent_any = True
                                       if s_email:
-                                           sent, _ = send_email(s_email, f"Sistema DUAL - Evaluación UE", "base_notification.html", ctx_student, [pdf_path])
+                                           sent, _ = send_email(s_email, f"Sistema DUAL - Evaluación UE", "base_notification.html", ctx_student, [docx_path])
                                            if sent: sent_any = True
                                            
                                       if sent_any:

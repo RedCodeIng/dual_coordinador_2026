@@ -18,7 +18,23 @@ def render_empresas():
 
         with tab_list:
             res = supabase.table("unidades_economicas").select("*").execute()
+            
+            # --- Search Filter ---
+            col_search_1, col_search_2 = st.columns([1, 4])
+            with col_search_1:
+                search_query = st.text_input("🔍 Buscar:", key="search_empresas").lower()
+            
+            # Filter results in memory
+            filtered_data = []
             if res.data:
+                for item in res.data:
+                    nc = (item.get("nombre_comercial") or "").lower()
+                    rs = (item.get("razon_social") or "").lower()
+                    
+                    if not search_query or search_query in nc or search_query in rs:
+                        filtered_data.append(item)
+            
+            if filtered_data:
                 # Add Select All functionality
                 col_sa1, col_sa2 = st.columns([1, 4])
                 with col_sa1:
@@ -26,7 +42,7 @@ def render_empresas():
                     
                 if st.session_state.get("prev_sel_all_empresas") != select_all:
                     st.session_state["prev_sel_all_empresas"] = select_all
-                    for ue in res.data:
+                    for ue in filtered_data:
                         st.session_state[f"sel_ue_{ue['id']}"] = select_all
                         
                 counter_placeholder = st.empty()
@@ -40,7 +56,7 @@ def render_empresas():
 
                 selected_companies = []
                 
-                for ue in res.data:
+                for ue in filtered_data:
                     c0, c1, c2, c3 = st.columns([0.5, 3, 2, 2])
                     
                     with c0:
@@ -93,7 +109,7 @@ def render_empresas():
                     
                     st.divider()
                     
-                counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_companies)}` de `{len(res.data)}`")
+                counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_companies)}` de `{len(filtered_data)}`")
                     
                 # Batch Action Area
                 if selected_companies:
@@ -138,6 +154,7 @@ def render_empresas():
                                         send_email(m['email'], "Credenciales de Acceso Mentor UE - Sistema DUAL", "nuevo_mentor.html", ctx)
                                         sent_count += 1
                                         
+                                st.toast(f"Credenciales enviadas a {sent_count} Mentores UE.", icon="✅")
                                 st.success(f"Se generaron y enviaron credenciales a {sent_count} Mentores UE.")
                             except Exception as e:
                                 st.error(f"Error al enviar credenciales masivas: {e}")

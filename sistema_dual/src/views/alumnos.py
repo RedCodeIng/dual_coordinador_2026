@@ -257,6 +257,23 @@ def render_alumnos():
                                 st.rerun()
                             else:
                                 st.error("Seleccione un docente.")
+                        
+                        # Check if project and UE are available for Anexo 5.4
+                        has_project_and_ue = proj and proj.get('unidades_economicas')
+                        if st.button("Generar Anexo 5.4 (Reporte)", use_container_width=True, disabled=not has_project_and_ue):
+                            with st.spinner("Generando Anexo 5.4..."):
+                                from src.utils.anexo_data import get_anexo_5_4_data
+                                data_54, err_54 = get_anexo_5_4_data(student_id)
+                                if data_54:
+                                    succ_54, msg_54 = generate_docx_document("Anexo_5.4_Reporte_de_Actividades.docx", data_54, docx_path_5_4,
+                                                                           os.path.join(base_project_dir, "sistema_dual", "src", "templates", "docs", "Anexo_5.4_Reporte_de_Actividades.docx"))
+                                    if succ_54:
+                                        st.success("Anexo 5.4 generado.")
+                                        st.rerun()
+                                    else:
+                                        st.error(msg_54)
+                                else:
+                                    st.error(err_54)
                     else:
                         st.warning("No hay docentes registrados como Mentores IE.")
                     
@@ -618,7 +635,7 @@ def render_alumnos():
                                     to_email=target_email,
                                     student_name=f"{student.get('nombre')} {student.get('ap_paterno')}",
                                     document_name=title.split('-')[0].strip('📄✉️📝 '),
-                                    file_path=a_path
+                                    file_path=docx_path
                                 )
                                 if success_mail:
                                     st.success("Documento enviado exitosamente.")
@@ -697,6 +714,25 @@ def render_alumnos():
                 st.info("No hay alumnos en esta categoría.")
                 return
                 
+            # --- Search Filter ---
+            col_search_1, col_search_2 = st.columns([1, 4])
+            with col_search_1:
+                search_query = st.text_input("🔍 Buscar Alumno:", key=f"search_{key_prefix}").lower()
+            
+            # Filter results in memory
+            filtered_data = []
+            for item in students_list:
+                m = str(item.get("matricula", "")).lower()
+                ape = str(item.get("ap_paterno", "")).lower()
+                nom = str(item.get("nombre", "")).lower()
+                
+                if not search_query or search_query in m or search_query in ape or search_query in nom:
+                    filtered_data.append(item)
+                    
+            if not filtered_data:
+                 st.info("No se encontraron resultados para la búsqueda.")
+                 return
+                 
             # Add Select All functionality
             col_sa1, col_sa2 = st.columns([1, 4])
             with col_sa1:
@@ -704,7 +740,7 @@ def render_alumnos():
             
             if st.session_state.get(f"prev_sel_all_{key_prefix}") != select_all:
                 st.session_state[f"prev_sel_all_{key_prefix}"] = select_all
-                for s in students_list:
+                for s in filtered_data:
                     st.session_state[f"sel_{key_prefix}_{s['id']}"] = select_all
 
             counter_placeholder = st.empty()
@@ -718,7 +754,7 @@ def render_alumnos():
             st.divider()
 
             selected_students = []
-            for s in students_list:
+            for s in filtered_data:
                 c0, c1, c2, c3, c4 = st.columns([0.5, 1, 2, 2, 2])
                 
                 with c0:
@@ -736,7 +772,7 @@ def render_alumnos():
                         st.rerun()
                 st.divider()
                 
-            counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_students)}` de `{len(students_list)}`")
+            counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_students)}` de `{len(filtered_data)}`")
 
             # Batch Action Area
             if selected_students:

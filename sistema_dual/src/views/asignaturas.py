@@ -41,7 +41,21 @@ def render_asignaturas():
                 
             res = query.execute()
             
+            # --- Search Filter ---
+            col_search_1, col_search_2 = st.columns([1, 4])
+            with col_search_1:
+                search_query = st.text_input("🔍 Buscar:", key="search_asignaturas").lower()
+            
+            # Filter results in memory
+            filtered_data = []
             if res.data:
+                for item in res.data:
+                    c = item.get("clave_asignatura", "").lower()
+                    n = item.get("nombre", "").lower()
+                    if not search_query or search_query in c or search_query in n:
+                        filtered_data.append(item)
+            
+            if filtered_data:
                 # Add Select All functionality
                 col_sa1, col_sa2 = st.columns([1, 4])
                 with col_sa1:
@@ -49,7 +63,7 @@ def render_asignaturas():
 
                 if st.session_state.get("prev_sel_all_asignaturas") != select_all:
                     st.session_state["prev_sel_all_asignaturas"] = select_all
-                    for s in res.data:
+                    for s in filtered_data:
                         st.session_state[f"sel_s_{s['id']}"] = select_all
 
                 counter_placeholder = st.empty()
@@ -65,7 +79,7 @@ def render_asignaturas():
                 
                 selected_subjects = []
                 
-                for s in sorted(res.data, key=lambda x: (x.get('semestre', 0), x['nombre'])):
+                for s in sorted(filtered_data, key=lambda x: (x.get('semestre', 0), x['nombre'])):
                     cont = st.container()
                     c0, c1, c2, c3, c4 = cont.columns([0.5, 1.5, 4, 1, 2])
                     
@@ -113,7 +127,7 @@ def render_asignaturas():
                     
                     st.divider()
 
-                counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_subjects)}` de `{len(res.data)}`")
+                counter_placeholder.markdown(f"✅ **Seleccionados:** `{len(selected_subjects)}` de `{len(filtered_data)}`")
 
                 # Batch Action Area
                 if selected_subjects:
