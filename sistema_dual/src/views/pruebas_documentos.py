@@ -306,26 +306,44 @@ def render_pruebas_documentos():
                                 res_alu = supabase.table("alumnos").insert(alu_data).execute()
                                 alu_ids = [a['id'] for a in res_alu.data]
                                 
-                                # 6. Generate 2 Competencias for each Mock Asignatura
-                                competencias_data = []
+                                # 6. Generate 2 Competencias and Actividades for each Mock Asignatura
                                 for asig_doc_id in asig_ids:
-                                    competencias_data.extend([
+                                    res_comp = supabase.table("asignatura_competencias").insert([
                                         {
                                             "asignatura_id": asig_doc_id,
                                             "numero_competencia": 1,
-                                            "competencia_desarrollada": "Competencia Simulada MOCK 1",
-                                            "conocimientos_teoricos": "Conocimiento Teórico Estándar para pruebas automáticas de reportes y formatos PDF. Se validará la inyección.",
-                                            "descripcion_actividades": "Actividad simulada para esta materia MOCK con el formato establecido en la base de datos."
+                                            "descripcion_competencia": "Competencia Simulada MOCK 1. Conocimiento Teórico Estándar para pruebas automáticas de reportes y formatos DOCX."
                                         },
                                         {
                                             "asignatura_id": asig_doc_id,
                                             "numero_competencia": 2,
-                                            "competencia_desarrollada": "Competencia Simulada MOCK 2",
-                                            "conocimientos_teoricos": "El segundo conocimiento teórico que debe inyectarse dinámicamente en el Anexo 5.4.",
-                                            "descripcion_actividades": "Segunda actividad que requiere validación por parte del maestro y del mentor de la unidad económica."
+                                            "descripcion_competencia": "Competencia Simulada MOCK 2. Segundo conocimiento teórico dinámico."
                                         }
-                                    ])
-                                supabase.table("asignatura_competencias").insert(competencias_data).execute()
+                                    ]).execute()
+                                    
+                                    comp_ids = [c['id'] for c in res_comp.data] if res_comp.data else []
+                                    actividades_data = []
+                                    for idx, c_id in enumerate(comp_ids):
+                                        actividades_data.extend([
+                                            {
+                                                "competencia_id": c_id,
+                                                "descripcion_actividad": f"Actividad MOCK A para competencia {idx+1}",
+                                                "horas_dedicacion": 20,
+                                                "evidencia": "Reporte MOCK",
+                                                "lugar": "UE",
+                                                "ponderacion": 50.0
+                                            },
+                                            {
+                                                "competencia_id": c_id,
+                                                "descripcion_actividad": f"Actividad MOCK B para competencia {idx+1}",
+                                                "horas_dedicacion": 20,
+                                                "evidencia": "Práctica MOCK",
+                                                "lugar": "Remoto",
+                                                "ponderacion": 50.0
+                                            }
+                                        ])
+                                    if actividades_data:
+                                        supabase.table("actividades_aprendizaje").insert(actividades_data).execute()
                                 
                                 st.success("¡Universo MOCK Inyectado! (3 Asignaturas, 6 Competencias, 5 Maestros, 2 UEs, 3 Mentores UE, 3 Alumnos). Todos usarán el correo proporcionado para pruebas de Fases.")
                     except Exception as e:
